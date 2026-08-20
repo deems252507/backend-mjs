@@ -7,12 +7,13 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' })); // Limit besar karena data transaksi bisa banyak
 
-// Ganti dengan kredensial database online Anda (Misal dari Aiven, Supabase, atau Vercel DB)
+// Mengambil kredensial database secara otomatis dari Clever Cloud
 const pool = mysql.createPool({
-    host: 'db_host_anda',
-    user: 'db_user_anda',
-    password: 'db_password_anda',
-    database: 'db_name_anda',
+    host: process.env.MYSQL_ADDON_HOST,
+    user: process.env.MYSQL_ADDON_USER,
+    password: process.env.MYSQL_ADDON_PASSWORD,
+    database: process.env.MYSQL_ADDON_DB,
+    port: process.env.MYSQL_ADDON_PORT,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
