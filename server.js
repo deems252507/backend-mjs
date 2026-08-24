@@ -7,12 +7,12 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 
-// GANTI DENGAN KREDENSIAL DATABASE ANDA
+// KREDENSIAL DATABASE SUDAH DIISI SESUAI DATA CLEVER CLOUD ANDA
 const pool = mysql.createPool({
-    host: 'db_host_anda',
-    user: 'db_user_anda',
-    password: 'db_password_anda',
-    database: 'db_name_anda',
+    host: 'b7fgoctdsrijlfhczppz-mysql.services.clever-cloud.com',
+    user: 'uks2krvuygsynrco',
+    password: 'fWwkTbshbBANrTGMj8Aq',
+    database: 'b7fgoctdsrijlfhczppz',
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
