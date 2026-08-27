@@ -59,8 +59,15 @@ app.get('/api/init', async (req, res) => {
 
         await pool.query(`CREATE TABLE IF NOT EXISTS retur_records (
             id VARCHAR(50) PRIMARY KEY, parent_invoice VARCHAR(50), tanggal DATETIME, 
-            kasir VARCHAR(100), pelanggan VARCHAR(255), items JSON, exchange_items JSON
+            kasir VARCHAR(100), pelanggan VARCHAR(255), items JSON
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+        // PENAMBAHAN KOLOM exchange_items SECARA AMAN TANPA HAPUS DATA LAMA
+        try {
+            await pool.query('ALTER TABLE retur_records ADD COLUMN exchange_items JSON');
+        } catch (e) {
+            // Abaikan error jika kolom sudah ada
+        }
 
         await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
             id INT PRIMARY KEY DEFAULT 1, kas_awal BIGINT DEFAULT 0, active_shift_start BIGINT,
@@ -135,10 +142,9 @@ app.post('/api/migrate', async (req, res) => {
     }
 });
 
-// 3. GET ALL DATA (OPTIMASI PARALEL UNTUK LOADING AWAL SANGAT CEPAT)
+// 3. GET ALL DATA (OPTIMASI PARALEL)
 app.get('/api/data', async (req, res) => {
     try {
-        // Jalankan semua query secara bersamaan (paralel) agar loading awal sangat cepat
         const [sparepartsResult, transactionsResult, partnersResult, cashExpensesResult, cashInflowsResult, taxRecordsResult, retursResult, settingsResult] = await Promise.all([
             pool.query('SELECT * FROM spareparts'),
             pool.query('SELECT * FROM transactions'),
@@ -146,7 +152,7 @@ app.get('/api/data', async (req, res) => {
             pool.query('SELECT * FROM cash_expenses'),
             pool.query('SELECT * FROM cash_inflows'),
             pool.query('SELECT * FROM tax_records'),
-            pool.query('SELECT * FROM retur_records').catch(() => [[], []]), // Amankan jika tabel belum ada
+            pool.query('SELECT * FROM retur_records').catch(() => [[], []]),
             pool.query('SELECT * FROM app_settings WHERE id = 1')
         ]);
 
@@ -159,7 +165,6 @@ app.get('/api/data', async (req, res) => {
         const returs = retursResult[0];
         const settings = settingsResult[0];
         
-        // Pengecekan Aman untuk Retur Records
         let returRecords = [];
         if (returs && returs.length > 0) {
             returRecords = returs.map(r => {
@@ -172,6 +177,8 @@ app.get('/api/data', async (req, res) => {
                 let parsedExchangeItems = r.exchange_items;
                 if (typeof parsedExchangeItems === 'string') {
                     try { parsedExchangeItems = JSON.parse(parsedExchangeItems); } catch(e) { parsedExchangeItems = []; }
+                } else if (!parsedExchangeItems) {
+                    parsedExchangeItems = [];
                 }
                 r.exchange_items = parsedExchangeItems;
                 
@@ -180,7 +187,6 @@ app.get('/api/data', async (req, res) => {
             });
         }
 
-        // Pengecekan Aman untuk Settings JSON
         let masterPajak = settings[0]?.master_pajak || [];
         if (typeof masterPajak === 'string') { try { masterPajak = JSON.parse(masterPajak); } catch(e) { masterPajak = []; } }
         
@@ -254,7 +260,7 @@ app.post('/api/transactions', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// HAPUS 1 INVOICE (Semua item dalam 1 nota)
+// HAPUS 1 INVOICE
 app.post('/api/transaction/delete-invoice', async (req, res) => {
     const { trxId } = req.body;
     try {
@@ -267,7 +273,7 @@ app.post('/api/transaction/delete-invoice', async (req, res) => {
     }
 });
 
-// HAPUS 1 ITEM TRANSAKSI (Untuk Transaksi Manual)
+// HAPUS 1 ITEM TRANSAKSI
 app.post('/api/transaction/delete', async (req, res) => {
     const { id } = req.body;
     try {
