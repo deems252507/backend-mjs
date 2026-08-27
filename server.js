@@ -135,7 +135,7 @@ app.post('/api/migrate', async (req, res) => {
     }
 });
 
-// 3. GET ALL DATA (OPTIMASI PARALEL UNTUK LOADING AWAL)
+// 3. GET ALL DATA (OPTIMASI PARALEL UNTUK LOADING AWAL SANGAT CEPAT)
 app.get('/api/data', async (req, res) => {
     try {
         // Jalankan semua query secara bersamaan (paralel) agar loading awal sangat cepat
