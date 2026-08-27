@@ -135,20 +135,33 @@ app.post('/api/migrate', async (req, res) => {
     }
 });
 
-// 3. GET ALL DATA (DIPERBAIKI: Tahan banting jika ada tabel yang error)
+// 3. GET ALL DATA (OPTIMASI PARALEL UNTUK LOADING AWAL)
 app.get('/api/data', async (req, res) => {
     try {
-        const [spareparts] = await pool.query('SELECT * FROM spareparts');
-        const [transactions] = await pool.query('SELECT * FROM transactions');
-        const [partners] = await pool.query('SELECT * FROM partners');
-        const [cashExpenses] = await pool.query('SELECT * FROM cash_expenses');
-        const [cashInflows] = await pool.query('SELECT * FROM cash_inflows');
-        const [taxRecords] = await pool.query('SELECT * FROM tax_records');
+        // Jalankan semua query secara bersamaan (paralel) agar loading awal sangat cepat
+        const [sparepartsResult, transactionsResult, partnersResult, cashExpensesResult, cashInflowsResult, taxRecordsResult, retursResult, settingsResult] = await Promise.all([
+            pool.query('SELECT * FROM spareparts'),
+            pool.query('SELECT * FROM transactions'),
+            pool.query('SELECT * FROM partners'),
+            pool.query('SELECT * FROM cash_expenses'),
+            pool.query('SELECT * FROM cash_inflows'),
+            pool.query('SELECT * FROM tax_records'),
+            pool.query('SELECT * FROM retur_records').catch(() => [[], []]), // Amankan jika tabel belum ada
+            pool.query('SELECT * FROM app_settings WHERE id = 1')
+        ]);
+
+        const spareparts = sparepartsResult[0];
+        const transactions = transactionsResult[0];
+        const partners = partnersResult[0];
+        const cashExpenses = cashExpensesResult[0];
+        const cashInflows = cashInflowsResult[0];
+        const taxRecords = taxRecordsResult[0];
+        const returs = retursResult[0];
+        const settings = settingsResult[0];
         
         // Pengecekan Aman untuk Retur Records
         let returRecords = [];
-        try {
-            const [returs] = await pool.query('SELECT * FROM retur_records');
+        if (returs && returs.length > 0) {
             returRecords = returs.map(r => {
                 let parsedItems = r.items;
                 if (typeof parsedItems === 'string') {
@@ -165,10 +178,8 @@ app.get('/api/data', async (req, res) => {
                 if (r.tanggal) r.tanggal = new Date(r.tanggal).toISOString();
                 return r;
             });
-        } catch (e) { console.log("Tabel retur_records belum ada, dilewati..."); }
+        }
 
-        const [settings] = await pool.query('SELECT * FROM app_settings WHERE id = 1');
-        
         // Pengecekan Aman untuk Settings JSON
         let masterPajak = settings[0]?.master_pajak || [];
         if (typeof masterPajak === 'string') { try { masterPajak = JSON.parse(masterPajak); } catch(e) { masterPajak = []; } }
