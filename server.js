@@ -135,7 +135,7 @@ app.post('/api/migrate', async (req, res) => {
     }
 });
 
-// 3. GET ALL DATA
+// 3. GET ALL DATA (DIPERBAIKI: Tahan banting jika ada tabel yang error)
 app.get('/api/data', async (req, res) => {
     try {
         const [spareparts] = await pool.query('SELECT * FROM spareparts');
@@ -145,23 +145,40 @@ app.get('/api/data', async (req, res) => {
         const [cashInflows] = await pool.query('SELECT * FROM cash_inflows');
         const [taxRecords] = await pool.query('SELECT * FROM tax_records');
         
-        const [returRecords] = await pool.query('SELECT * FROM retur_records');
-        returRecords.forEach(r => {
-            if (typeof r.items === 'string') r.items = JSON.parse(r.items);
-            r.tanggal = new Date(r.tanggal).toISOString();
-        });
+        // Pengecekan Aman untuk Retur Records
+        let returRecords = [];
+        try {
+            const [returs] = await pool.query('SELECT * FROM retur_records');
+            returRecords = returs.map(r => {
+                let parsedItems = r.items;
+                if (typeof parsedItems === 'string') {
+                    try { parsedItems = JSON.parse(parsedItems); } catch(e) { parsedItems = []; }
+                }
+                r.items = parsedItems;
+                if (r.tanggal) r.tanggal = new Date(r.tanggal).toISOString();
+                return r;
+            });
+        } catch (e) { console.log("Tabel retur_records belum ada, dilewati..."); }
 
         const [settings] = await pool.query('SELECT * FROM app_settings WHERE id = 1');
         
+        // Pengecekan Aman untuk Settings JSON
+        let masterPajak = settings[0]?.master_pajak || [];
+        if (typeof masterPajak === 'string') { try { masterPajak = JSON.parse(masterPajak); } catch(e) { masterPajak = []; } }
+        
+        let users = settings[0]?.users || [];
+        if (typeof users === 'string') { try { users = JSON.parse(users); } catch(e) { users = []; } }
+
         res.json({
             spareparts, transactions, partners, cashExpenses, cashInflows, taxRecords,
             returRecords,
             kasAwal: settings[0]?.kas_awal || 0,
             activeShiftStart: settings[0]?.active_shift_start || Date.now(),
-            masterPajak: settings[0]?.master_pajak || [],
-            users: settings[0]?.users || []
+            masterPajak: masterPajak,
+            users: users
         });
     } catch (error) {
+        console.error("Error GET DATA:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -219,7 +236,7 @@ app.post('/api/transactions', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// HAPUS 1 TRANSAKSI (Diubah ke metode POST agar aman dari proxy Clever Cloud)
+// HAPUS 1 TRANSAKSI
 app.post('/api/transaction/delete', async (req, res) => {
     const { id } = req.body;
     try {
@@ -291,7 +308,6 @@ app.put('/api/settings', async (req, res) => {
 app.post('/api/restore', async (req, res) => {
     const data = req.body;
     try {
-        // 1. Kosongkan SEMUA tabel di server agar tidak dobel (bertambah)
         await pool.query('DELETE FROM spareparts');
         await pool.query('DELETE FROM transactions');
         await pool.query('DELETE FROM partners');
@@ -300,7 +316,6 @@ app.post('/api/restore', async (req, res) => {
         await pool.query('DELETE FROM tax_records');
         await pool.query('DELETE FROM retur_records');
 
-        // 2. Masukkan data baru dari file JSON Backup
         if (data.spareparts?.length > 0) {
             const values = data.spareparts.map(sp => [sp.id, sp.kode, sp.part_number, sp.part_numbers_alt||'', sp.nama, sp.kategori||'Umum', sp.merek||'', sp.satuan||'Pcs', sp.stok_min||0, sp.stok_awal||0, sp.harga_beli||0, sp.harga_jual||0, sp.satuan_alt||'', sp.isi_satuan_alt||0, sp.harga_jual_alt||0, sp.pajak_status||'Non Pajak', sp.kode_pajak||'', sp.keterangan||'']);
             for (let i = 0; i < values.length; i += 500) {
@@ -334,7 +349,6 @@ app.post('/api/restore', async (req, res) => {
             await pool.query('INSERT INTO retur_records (id, parent_invoice, tanggal, kasir, pelanggan, items) VALUES ?', [values]);
         }
 
-        // 3. Update Settings (Kas Awal, Pajak, User)
         await pool.query('UPDATE app_settings SET kas_awal=?, active_shift_start=?, master_pajak=?, users=? WHERE id=1', [
             data.kasAwal || 0, data.activeShiftStart || Date.now(),
             JSON.stringify(data.masterPajak || []), JSON.stringify(data.users || [])
