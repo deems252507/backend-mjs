@@ -59,7 +59,7 @@ app.get('/api/init', async (req, res) => {
 
         await pool.query(`CREATE TABLE IF NOT EXISTS retur_records (
             id VARCHAR(50) PRIMARY KEY, parent_invoice VARCHAR(50), tanggal DATETIME, 
-            kasir VARCHAR(100), pelanggan VARCHAR(255), items JSON
+            kasir VARCHAR(100), pelanggan VARCHAR(255), items JSON, exchange_items JSON
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
         await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
@@ -84,7 +84,7 @@ app.get('/api/init', async (req, res) => {
                 ])
             ]);
         }
-        res.json({ message: "Database & Tabel siap (Termasuk Retur)!" });
+        res.json({ message: "Database & Tabel siap (Termasuk Retur & Tukar)!" });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -155,6 +155,13 @@ app.get('/api/data', async (req, res) => {
                     try { parsedItems = JSON.parse(parsedItems); } catch(e) { parsedItems = []; }
                 }
                 r.items = parsedItems;
+                
+                let parsedExchangeItems = r.exchange_items;
+                if (typeof parsedExchangeItems === 'string') {
+                    try { parsedExchangeItems = JSON.parse(parsedExchangeItems); } catch(e) { parsedExchangeItems = []; }
+                }
+                r.exchange_items = parsedExchangeItems;
+                
                 if (r.tanggal) r.tanggal = new Date(r.tanggal).toISOString();
                 return r;
             });
@@ -236,7 +243,20 @@ app.post('/api/transactions', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// HAPUS 1 TRANSAKSI
+// HAPUS 1 INVOICE (Semua item dalam 1 nota)
+app.post('/api/transaction/delete-invoice', async (req, res) => {
+    const { trxId } = req.body;
+    try {
+        await pool.query('DELETE FROM transactions WHERE nomor_transaksi = ?', [trxId]);
+        await pool.query('DELETE FROM tax_records WHERE nomor_transaksi = ?', [trxId]);
+        res.json({ message: "Invoice berhasil dihapus dari server" });
+    } catch (error) { 
+        console.error("Error hapus invoice:", error);
+        res.status(500).json({ error: error.message }); 
+    }
+});
+
+// HAPUS 1 ITEM TRANSAKSI (Untuk Transaksi Manual)
 app.post('/api/transaction/delete', async (req, res) => {
     const { id } = req.body;
     try {
@@ -246,6 +266,22 @@ app.post('/api/transaction/delete', async (req, res) => {
         res.json({ message: "Transaksi berhasil dihapus dari server" });
     } catch (error) { 
         console.error("Error hapus transaksi:", error);
+        res.status(500).json({ error: error.message }); 
+    }
+});
+
+// EDIT/TUKAR BARANG TRANSAKSI
+app.put('/api/transaction/:id', async (req, res) => {
+    const { id } = req.params;
+    const updatedData = req.body;
+    try {
+        await pool.query('UPDATE transactions SET sparepart_id=?, custom_item=?, jenis=?, jumlah=?, satuan=?, jumlah_dasar=?, tujuan=?, keterangan=? WHERE id = ?', [
+            updatedData.sparepart_id, updatedData.custom_item, updatedData.jenis, updatedData.jumlah, 
+            updatedData.satuan, updatedData.jumlah_dasar, updatedData.tujuan, updatedData.keterangan, parseInt(id)
+        ]);
+        res.json({ message: "Transaksi berhasil diupdate (Tukar Barang)" });
+    } catch (error) { 
+        console.error("Error edit transaksi:", error);
         res.status(500).json({ error: error.message }); 
     }
 });
@@ -276,8 +312,8 @@ app.put('/api/settings', async (req, res) => {
         if (returRecords) {
             await pool.query('DELETE FROM retur_records');
             if (returRecords.length > 0) {
-                const values = returRecords.map(r => [r.id, r.parent_invoice, new Date(r.tanggal), r.kasir||'', r.pelanggan||'', JSON.stringify(r.items)]);
-                await pool.query('INSERT INTO retur_records (id, parent_invoice, tanggal, kasir, pelanggan, items) VALUES ?', [values]);
+                const values = returRecords.map(r => [r.id, r.parent_invoice, new Date(r.tanggal), r.kasir||'', r.pelanggan||'', JSON.stringify(r.items || []), JSON.stringify(r.exchange_items || [])]);
+                await pool.query('INSERT INTO retur_records (id, parent_invoice, tanggal, kasir, pelanggan, items, exchange_items) VALUES ?', [values]);
             }
         }
         
@@ -345,8 +381,8 @@ app.post('/api/restore', async (req, res) => {
             await pool.query('INSERT INTO tax_records (tax_id, trx_id, tanggal, nomor_transaksi, part_number, nama, kategori, merek, status_bayar, pelanggan, jumlah, satuan, harga_satuan, subtotal, persentase_pajak, nilai_pajak) VALUES ?', [values]);
         }
         if (data.returRecords?.length > 0) {
-            const values = data.returRecords.map(r => [r.id, r.parent_invoice, new Date(r.tanggal), r.kasir||'', r.pelanggan||'', JSON.stringify(r.items)]);
-            await pool.query('INSERT INTO retur_records (id, parent_invoice, tanggal, kasir, pelanggan, items) VALUES ?', [values]);
+            const values = data.returRecords.map(r => [r.id, r.parent_invoice, new Date(r.tanggal), r.kasir||'', r.pelanggan||'', JSON.stringify(r.items || []), JSON.stringify(r.exchange_items || [])]);
+            await pool.query('INSERT INTO retur_records (id, parent_invoice, tanggal, kasir, pelanggan, items, exchange_items) VALUES ?', [values]);
         }
 
         await pool.query('UPDATE app_settings SET kas_awal=?, active_shift_start=?, master_pajak=?, users=? WHERE id=1', [
