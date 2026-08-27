@@ -208,7 +208,6 @@ app.post('/api/transactions', async (req, res) => {
     const { transactions, taxRecords } = req.body;
     try {
         if (transactions?.length > 0) {
-            // Gunakan parseInt untuk memastikan ID selalu bilangan bulat (BIGINT)
             const values = transactions.map(t => [parseInt(t.id), t.nomor_transaksi, t.tanggal, t.sparepart_id, t.custom_item||null, t.part_numbers_alt||'', t.merek||'', t.jenis, t.jumlah, t.satuan, t.jumlah_dasar, t.harga_satuan, t.tujuan||'', t.keterangan||'', t.source, t.kasir||'', t.status_bayar, t.metode_bayar||'', t.bayar_tunai||0, t.transfer_amount||0, t.kembalian_diberikan||0, t.diskon||0, t.tanggal_lunas||null]);
             await pool.query('INSERT IGNORE INTO transactions (id, nomor_transaksi, tanggal, sparepart_id, custom_item, part_numbers_alt, merek, jenis, jumlah, satuan, jumlah_dasar, harga_satuan, tujuan, keterangan, source, kasir, status_bayar, metode_bayar, bayar_tunai, transfer_amount, kembalian_diberikan, diskon, tanggal_lunas) VALUES ?', [values]);
         }
@@ -284,6 +283,66 @@ app.put('/api/settings', async (req, res) => {
         res.json({ message: "Settings & Data Sync berhasil disimpan" });
     } catch (error) {
         console.error(error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 8. RESTORE DATA (Wipe & Replace)
+app.post('/api/restore', async (req, res) => {
+    const data = req.body;
+    try {
+        // 1. Kosongkan SEMUA tabel di server agar tidak dobel (bertambah)
+        await pool.query('DELETE FROM spareparts');
+        await pool.query('DELETE FROM transactions');
+        await pool.query('DELETE FROM partners');
+        await pool.query('DELETE FROM cash_expenses');
+        await pool.query('DELETE FROM cash_inflows');
+        await pool.query('DELETE FROM tax_records');
+        await pool.query('DELETE FROM retur_records');
+
+        // 2. Masukkan data baru dari file JSON Backup
+        if (data.spareparts?.length > 0) {
+            const values = data.spareparts.map(sp => [sp.id, sp.kode, sp.part_number, sp.part_numbers_alt||'', sp.nama, sp.kategori||'Umum', sp.merek||'', sp.satuan||'Pcs', sp.stok_min||0, sp.stok_awal||0, sp.harga_beli||0, sp.harga_jual||0, sp.satuan_alt||'', sp.isi_satuan_alt||0, sp.harga_jual_alt||0, sp.pajak_status||'Non Pajak', sp.kode_pajak||'', sp.keterangan||'']);
+            for (let i = 0; i < values.length; i += 500) {
+                await pool.query('INSERT INTO spareparts (id, kode, part_number, part_numbers_alt, nama, kategori, merek, satuan, stok_min, stok_awal, harga_beli, harga_jual, satuan_alt, isi_satuan_alt, harga_jual_alt, pajak_status, kode_pajak, keterangan) VALUES ?', [values.slice(i, i + 500)]);
+            }
+        }
+        if (data.transactions?.length > 0) {
+            const values = data.transactions.map(t => [parseInt(t.id), t.nomor_transaksi, t.tanggal, t.sparepart_id, t.custom_item||null, t.part_numbers_alt||'', t.merek||'', t.jenis, t.jumlah, t.satuan, t.jumlah_dasar, t.harga_satuan, t.tujuan||'', t.keterangan||'', t.source, t.kasir||'', t.status_bayar, t.metode_bayar||'', t.bayar_tunai||0, t.transfer_amount||0, t.kembalian_diberikan||0, t.diskon||0, t.tanggal_lunas||null]);
+            for (let i = 0; i < values.length; i += 500) {
+                await pool.query('INSERT INTO transactions (id, nomor_transaksi, tanggal, sparepart_id, custom_item, part_numbers_alt, merek, jenis, jumlah, satuan, jumlah_dasar, harga_satuan, tujuan, keterangan, source, kasir, status_bayar, metode_bayar, bayar_tunai, transfer_amount, kembalian_diberikan, diskon, tanggal_lunas) VALUES ?', [values.slice(i, i + 500)]);
+            }
+        }
+        if (data.partners?.length > 0) {
+            const values = data.partners.map(p => [p.id, p.nama, p.tipe, p.telp||'', p.alamat||'']);
+            await pool.query('INSERT INTO partners (id, nama, tipe, telp, alamat) VALUES ?', [values]);
+        }
+        if (data.cashExpenses?.length > 0) {
+            const values = data.cashExpenses.map(e => [e.id, e.tanggal, e.jumlah, e.keterangan, e.kasir||'']);
+            await pool.query('INSERT INTO cash_expenses (id, tanggal, jumlah, keterangan, kasir) VALUES ?', [values]);
+        }
+        if (data.cashInflows?.length > 0) {
+            const values = data.cashInflows.map(i => [i.id, i.tanggal, i.jumlah, i.keterangan, i.kasir||'']);
+            await pool.query('INSERT INTO cash_inflows (id, tanggal, jumlah, keterangan, kasir) VALUES ?', [values]);
+        }
+        if (data.taxRecords?.length > 0) {
+            const values = data.taxRecords.map(t => [t.tax_id, parseInt(t.trx_id), t.tanggal, t.nomor_transaksi, t.part_number, t.nama, t.kategori, t.merek, t.status_bayar, t.pelanggan, t.jumlah, t.satuan, t.harga_satuan, t.subtotal, t.persentase_pajak, t.nilai_pajak]);
+            await pool.query('INSERT INTO tax_records (tax_id, trx_id, tanggal, nomor_transaksi, part_number, nama, kategori, merek, status_bayar, pelanggan, jumlah, satuan, harga_satuan, subtotal, persentase_pajak, nilai_pajak) VALUES ?', [values]);
+        }
+        if (data.returRecords?.length > 0) {
+            const values = data.returRecords.map(r => [r.id, r.parent_invoice, new Date(r.tanggal), r.kasir||'', r.pelanggan||'', JSON.stringify(r.items)]);
+            await pool.query('INSERT INTO retur_records (id, parent_invoice, tanggal, kasir, pelanggan, items) VALUES ?', [values]);
+        }
+
+        // 3. Update Settings (Kas Awal, Pajak, User)
+        await pool.query('UPDATE app_settings SET kas_awal=?, active_shift_start=?, master_pajak=?, users=? WHERE id=1', [
+            data.kasAwal || 0, data.activeShiftStart || Date.now(),
+            JSON.stringify(data.masterPajak || []), JSON.stringify(data.users || [])
+        ]);
+
+        res.json({ message: "Restore data berhasil! Semua tabel di server telah ditimpa." });
+    } catch (error) {
+        console.error("Error restore:", error);
         res.status(500).json({ error: error.message });
     }
 });
