@@ -18,8 +18,8 @@ const pool = mysql.createPool({
     password: 'fWwkTbshbBANrTGMj8Aq',
     database: 'b7fgoctdsrijlfhczppz',
     waitForConnections: true,
-    connectionLimit: 1, // UBAH JADI 1 AGAR TIDAK MELEBIHI BATAS CLEVER CLOUD
-    queueLimit: 0 // REQUEST AKAN ANTRI, BUKAN LANGSUNG ERROR
+    connectionLimit: 4, 
+    queueLimit: 0
 });
 
 // 1. INISIALISASI TABEL
