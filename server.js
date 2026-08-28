@@ -391,6 +391,40 @@ app.put('/api/transactions/payoff', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// ENDPOINT UNTUK RETUR BARU
+app.post('/api/retur', async (req, res) => {
+    const { retur, transactions, taxRecords } = req.body;
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        
+        // 1. Simpan transaksi barang masuk/keluar dari retur
+        if (transactions?.length > 0) {
+            const values = transactions.map(t => [parseInt(t.id), t.nomor_transaksi, t.tanggal, t.sparepart_id, t.custom_item||null, t.part_numbers_alt||'', t.merek||'', t.jenis, t.jumlah, t.satuan, t.jumlah_dasar, t.harga_satuan, t.tujuan||'', t.keterangan||'', t.source, t.kasir||'', t.status_bayar, t.metode_bayar||'', t.bayar_tunai||0, t.transfer_amount||0, t.kembalian_diberikan||0, t.diskon||0, t.tanggal_lunas||null]);
+            await connection.query('INSERT IGNORE INTO transactions (id, nomor_transaksi, tanggal, sparepart_id, custom_item, part_numbers_alt, merek, jenis, jumlah, satuan, jumlah_dasar, harga_satuan, tujuan, keterangan, source, kasir, status_bayar, metode_bayar, bayar_tunai, transfer_amount, kembalian_diberikan, diskon, tanggal_lunas) VALUES ?', [values]);
+        }
+        
+        // 2. Simpan data pajak jika ada
+        if (taxRecords?.length > 0) {
+            const values = taxRecords.map(t => [t.tax_id, parseInt(t.trx_id), t.tanggal, t.nomor_transaksi, t.part_number, t.nama, t.kategori, t.merek, t.status_bayar, t.pelanggan, t.jumlah, t.satuan, t.harga_satuan, t.subtotal, t.persentase_pajak, t.nilai_pajak]);
+            await connection.query('INSERT IGNORE INTO tax_records (tax_id, trx_id, tanggal, nomor_transaksi, part_number, nama, kategori, merek, status_bayar, pelanggan, jumlah, satuan, harga_satuan, subtotal, persentase_pajak, nilai_pajak) VALUES ?', [values]);
+        }
+        
+        // 3. Simpan data retur ke tabel retur_records
+        if (retur) {
+            const r = retur;
+            await connection.query('INSERT INTO retur_records (id, parent_invoice, tanggal, kasir, pelanggan, items, exchange_items) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE parent_invoice=VALUES(parent_invoice), tanggal=VALUES(tanggal), kasir=VALUES(kasir), pelanggan=VALUES(pelanggan), items=VALUES(items), exchange_items=VALUES(exchange_items)', 
+            [r.id, r.parent_invoice, new Date(r.tanggal), r.kasir||'', r.pelanggan||'', JSON.stringify(r.items || []), JSON.stringify(r.exchange_items || [])]);
+        }
+        
+        res.json({ message: "Retur berhasil disimpan ke server" });
+    } catch (error) {
+        console.error("Error simpan retur:", error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
+    }
+});
 // 6. PARTNER
 app.post('/api/partner', async (req, res) => { try { await pool.query('INSERT INTO partners SET ?', req.body); res.json({message:"Partner disimpan"}); } catch(e){ res.status(500).json({error:e.message}); } });
 app.put('/api/partner/:id', async (req, res) => { try { await pool.query('UPDATE partners SET ? WHERE id = ?', [req.body, req.params.id]); res.json({message:"Partner diupdate"}); } catch(e){ res.status(500).json({error:e.message}); } });
