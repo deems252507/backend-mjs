@@ -6,7 +6,7 @@ const mysql = require('mysql2/promise');
 const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
-// ENDPOINT TEST UNTUK MENGECEK VERSI SERVER
+
 app.get('/api/test', (req, res) => {
     res.json({ status: "OK", message: "Server baru berhasil di-deploy!" });
 });
@@ -18,8 +18,38 @@ const pool = mysql.createPool({
     password: 'fWwkTbshbBANrTGMj8Aq',
     database: 'b7fgoctdsrijlfhczppz',
     waitForConnections: true,
-    connectionLimit: 4, 
+    connectionLimit: 4,
     queueLimit: 0
+});
+
+// === Error handlers untuk mencegah server crash ===
+pool.on('error', (err) => {
+    console.error('Database pool error:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+});
+
+// === In-memory cache untuk /api/data ===
+let dataCache = null;
+let dataCacheTime = 0;
+const DATA_CACHE_TTL = 2000;
+
+function invalidateDataCache() {
+    dataCache = null;
+    dataCacheTime = 0;
+}
+
+app.use((req, res, next) => {
+    if (req.method !== 'GET') {
+        invalidateDataCache();
+    }
+    next();
 });
 
 // 1. INISIALISASI TABEL
@@ -62,7 +92,7 @@ app.get('/api/init', async (req, res) => {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
         await pool.query(`CREATE TABLE IF NOT EXISTS retur_records (
-            id VARCHAR(50) PRIMARY KEY, parent_invoice VARCHAR(50), tanggal DATETIME, 
+            id VARCHAR(50) PRIMARY KEY, parent_invoice VARCHAR(50), tanggal DATETIME,
             kasir VARCHAR(100), pelanggan VARCHAR(255), items JSON, exchange_items JSON
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
@@ -139,29 +169,46 @@ app.post('/api/migrate', async (req, res) => {
     }
 });
 
-// 3. GET ALL DATA
+// 3. GET ALL DATA (DIOPTIMALKAN)
 app.get('/api/data', async (req, res) => {
-    try {
-        const [sparepartsResult, transactionsResult, partnersResult, cashExpensesResult, cashInflowsResult, taxRecordsResult, retursResult, settingsResult] = await Promise.all([
-            pool.query('SELECT * FROM spareparts'),
-            pool.query('SELECT * FROM transactions'),
-            pool.query('SELECT * FROM partners'),
-            pool.query('SELECT * FROM cash_expenses'),
-            pool.query('SELECT * FROM cash_inflows'),
-            pool.query('SELECT * FROM tax_records'),
-            pool.query('SELECT * FROM retur_records').catch(() => [[], []]),
-            pool.query('SELECT * FROM app_settings WHERE id = 1')
-        ]);
+    const now = Date.now();
+    if (dataCache && (now - dataCacheTime) < DATA_CACHE_TTL) {
+        return res.json(dataCache);
+    }
 
-        const spareparts = sparepartsResult[0];
-        const transactions = transactionsResult[0];
-        const partners = partnersResult[0];
-        const cashExpenses = cashExpensesResult[0];
-        const cashInflows = cashInflowsResult[0];
-        const taxRecords = taxRecordsResult[0];
-        const returs = retursResult[0];
-        const settings = settingsResult[0];
-        
+    let connection;
+    try {
+        connection = await pool.getConnection();
+
+        const [spareparts] = await connection.query('SELECT * FROM spareparts');
+        const [transactions] = await connection.query('SELECT * FROM transactions');
+        const [partners] = await connection.query('SELECT * FROM partners');
+        const [cashExpenses] = await connection.query('SELECT * FROM cash_expenses');
+        const [cashInflows] = await connection.query('SELECT * FROM cash_inflows');
+        const [taxRecords] = await connection.query('SELECT * FROM tax_records');
+        let returs = [];
+        try {
+            const [returResult] = await connection.query('SELECT * FROM retur_records');
+            returs = returResult;
+        } catch (e) { }
+
+        const [settings] = await connection.query('SELECT * FROM app_settings WHERE id = 1');
+
+        // Konversi tanggal ke ISO string untuk konsistensi
+        transactions.forEach(t => {
+            if (t.tanggal instanceof Date) t.tanggal = t.tanggal.toISOString();
+            if (t.tanggal_lunas instanceof Date) t.tanggal_lunas = t.tanggal_lunas.toISOString();
+        });
+        cashExpenses.forEach(e => {
+            if (e.tanggal instanceof Date) e.tanggal = e.tanggal.toISOString();
+        });
+        cashInflows.forEach(i => {
+            if (i.tanggal instanceof Date) i.tanggal = i.tanggal.toISOString();
+        });
+        taxRecords.forEach(t => {
+            if (t.tanggal instanceof Date) t.tanggal = t.tanggal.toISOString();
+        });
+
         let returRecords = [];
         if (returs && returs.length > 0) {
             returRecords = returs.map(r => {
@@ -170,7 +217,7 @@ app.get('/api/data', async (req, res) => {
                     try { parsedItems = JSON.parse(parsedItems); } catch(e) { parsedItems = []; }
                 }
                 r.items = parsedItems;
-                
+
                 let parsedExchangeItems = r.exchange_items;
                 if (typeof parsedExchangeItems === 'string') {
                     try { parsedExchangeItems = JSON.parse(parsedExchangeItems); } catch(e) { parsedExchangeItems = []; }
@@ -178,7 +225,7 @@ app.get('/api/data', async (req, res) => {
                     parsedExchangeItems = [];
                 }
                 r.exchange_items = parsedExchangeItems;
-                
+
                 if (r.tanggal) r.tanggal = new Date(r.tanggal).toISOString();
                 return r;
             });
@@ -186,21 +233,32 @@ app.get('/api/data', async (req, res) => {
 
         let masterPajak = settings[0]?.master_pajak || [];
         if (typeof masterPajak === 'string') { try { masterPajak = JSON.parse(masterPajak); } catch(e) { masterPajak = []; } }
-        
+
         let users = settings[0]?.users || [];
         if (typeof users === 'string') { try { users = JSON.parse(users); } catch(e) { users = []; } }
 
-        res.json({
+        const result = {
             spareparts, transactions, partners, cashExpenses, cashInflows, taxRecords,
             returRecords,
             kasAwal: settings[0]?.kas_awal || 0,
             activeShiftStart: settings[0]?.active_shift_start || Date.now(),
             masterPajak: masterPajak,
             users: users
-        });
+        };
+
+        dataCache = result;
+        dataCacheTime = Date.now();
+
+        res.json(result);
     } catch (error) {
         console.error("Error GET DATA:", error);
+        if (dataCache) {
+            console.log("Mengembalikan data cache karena error database");
+            return res.json(dataCache);
+        }
         res.status(500).json({ error: error.message });
+    } finally {
+        if (connection) connection.release();
     }
 });
 
@@ -238,9 +296,9 @@ app.delete('/api/sparepart/:id', async (req, res) => {
         await pool.query('DELETE FROM spareparts WHERE id = ?', [req.params.id]);
         await pool.query('DELETE FROM transactions WHERE sparepart_id = ?', [req.params.id]);
         res.json({ message: "Sparepart dihapus" });
-    } catch (error) { 
+    } catch (error) {
         console.error("Error hapus sparepart:", error);
-        res.status(500).json({ error: error.message }); 
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -260,12 +318,11 @@ app.post('/api/transactions', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// HAPUS 1 INVOICE
 app.post('/api/transaction/delete-invoice', async (req, res) => {
     const { trxId } = req.body;
     try {
         const [returs] = await pool.query('SELECT id FROM retur_records WHERE parent_invoice = ?', [trxId]);
-        
+
         await pool.query('DELETE FROM transactions WHERE nomor_transaksi = ?', [trxId]);
         await pool.query('DELETE FROM tax_records WHERE nomor_transaksi = ?', [trxId]);
 
@@ -278,13 +335,12 @@ app.post('/api/transaction/delete-invoice', async (req, res) => {
 
         await pool.query('DELETE FROM retur_records WHERE parent_invoice = ?', [trxId]);
         res.json({ message: "Invoice & Retur berhasil dihapus dari server" });
-    } catch (error) { 
+    } catch (error) {
         console.error("Error hapus invoice:", error);
-        res.status(500).json({ error: error.message }); 
+        res.status(500).json({ error: error.message });
     }
 });
 
-// HAPUS RETUR
 app.post('/api/transaction/delete-retur', async (req, res) => {
     const { returId } = req.body;
     try {
@@ -292,13 +348,12 @@ app.post('/api/transaction/delete-retur', async (req, res) => {
         await pool.query('DELETE FROM tax_records WHERE nomor_transaksi = ?', [returId]);
         await pool.query('DELETE FROM retur_records WHERE id = ?', [returId]);
         res.json({ message: "Retur berhasil dihapus dari server" });
-    } catch (error) { 
+    } catch (error) {
         console.error("Error hapus retur:", error);
-        res.status(500).json({ error: error.message }); 
+        res.status(500).json({ error: error.message });
     }
 });
 
-// HAPUS 1 ITEM TRANSAKSI MANUAL
 app.post('/api/transaction/delete', async (req, res) => {
     const { id } = req.body;
     try {
@@ -306,29 +361,27 @@ app.post('/api/transaction/delete', async (req, res) => {
         await pool.query('DELETE FROM transactions WHERE id = ?', [cleanId]);
         await pool.query('DELETE FROM tax_records WHERE trx_id = ?', [cleanId]);
         res.json({ message: "Transaksi berhasil dihapus dari server" });
-    } catch (error) { 
+    } catch (error) {
         console.error("Error hapus transaksi:", error);
-        res.status(500).json({ error: error.message }); 
+        res.status(500).json({ error: error.message });
     }
 });
 
-// EDIT/TUKAR BARANG TRANSAKSI
 app.put('/api/transaction/:id', async (req, res) => {
     const { id } = req.params;
     const updatedData = req.body;
     try {
         await pool.query('UPDATE transactions SET sparepart_id=?, custom_item=?, jenis=?, jumlah=?, satuan=?, jumlah_dasar=?, tujuan=?, keterangan=? WHERE id = ?', [
-            updatedData.sparepart_id, updatedData.custom_item, updatedData.jenis, updatedData.jumlah, 
+            updatedData.sparepart_id, updatedData.custom_item, updatedData.jenis, updatedData.jumlah,
             updatedData.satuan, updatedData.jumlah_dasar, updatedData.tujuan, updatedData.keterangan, parseInt(id)
         ]);
         res.json({ message: "Transaksi berhasil diupdate (Tukar Barang)" });
-    } catch (error) { 
+    } catch (error) {
         console.error("Error edit transaksi:", error);
-        res.status(500).json({ error: error.message }); 
+        res.status(500).json({ error: error.message });
     }
 });
 
-// LUNASI BON / PIUTANG
 app.put('/api/transactions/payoff', async (req, res) => {
     const { trxId } = req.body;
     try {
@@ -350,7 +403,7 @@ app.put('/api/settings', async (req, res) => {
         await pool.query('UPDATE app_settings SET kas_awal=?, active_shift_start=?, master_pajak=?, users=? WHERE id=1', [
             kasAwal || 0, activeShiftStart || Date.now(), JSON.stringify(masterPajak || []), JSON.stringify(users || [])
         ]);
-        
+
         if (returRecords) {
             if (returRecords.length > 0) {
                 const values = returRecords.map(r => [r.id, r.parent_invoice, new Date(r.tanggal), r.kasir||'', r.pelanggan||'', JSON.stringify(r.items || []), JSON.stringify(r.exchange_items || [])]);
@@ -361,7 +414,7 @@ app.put('/api/settings', async (req, res) => {
                 await pool.query('DELETE FROM retur_records');
             }
         }
-        
+
         if (cashExpenses) {
             if (cashExpenses.length > 0) {
                 const values = cashExpenses.map(e => [e.id, new Date(e.tanggal), e.jumlah, e.keterangan||'', e.kasir||'']);
@@ -372,7 +425,7 @@ app.put('/api/settings', async (req, res) => {
                 await pool.query('DELETE FROM cash_expenses');
             }
         }
-        
+
         if (cashInflows) {
             if (cashInflows.length > 0) {
                 const values = cashInflows.map(i => [i.id, new Date(i.tanggal), i.jumlah, i.keterangan||'', i.kasir||'']);
