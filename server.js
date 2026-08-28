@@ -382,55 +382,150 @@ app.put('/api/transaction/:id', async (req, res) => {
     }
 });
 
-app.put('/api/transactions/payoff', async (req, res) => {
-    const { trxId } = req.body;
+// === ENDPOINT BARU: EDIT STRUK UNTUK BON ===
+// Hanya mengubah harga_satuan dan diskon, TIDAK mengubah jumlah/stok
+app.put('/api/transaction/edit-struk', async (req, res) => {
+    const { invoice, items, diskon } = req.body;
+    const conn = await pool.getConnection();
     try {
-        await pool.query('UPDATE transactions SET status_bayar = "Lunas", keterangan = "Bon (Lunas)", tanggal_lunas = NOW() WHERE nomor_transaksi = ?', [trxId]);
-        await pool.query('UPDATE tax_records SET status_bayar = "Lunas" WHERE nomor_transaksi = ?', [trxId]);
-        res.json({ message: "Piutang berhasil dilunasi" });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
+        await conn.beginTransaction();
 
-// ENDPOINT UNTUK RETUR BARU
-app.post('/api/retur', async (req, res) => {
-    const { retur, transactions, taxRecords } = req.body;
-    let connection;
-    try {
-        connection = await pool.getConnection();
-        
-        // 1. Simpan transaksi barang masuk/keluar dari retur
-        if (transactions?.length > 0) {
-            const values = transactions.map(t => [parseInt(t.id), t.nomor_transaksi, t.tanggal, t.sparepart_id, t.custom_item||null, t.part_numbers_alt||'', t.merek||'', t.jenis, t.jumlah, t.satuan, t.jumlah_dasar, t.harga_satuan, t.tujuan||'', t.keterangan||'', t.source, t.kasir||'', t.status_bayar, t.metode_bayar||'', t.bayar_tunai||0, t.transfer_amount||0, t.kembalian_diberikan||0, t.diskon||0, t.tanggal_lunas||null]);
-            await connection.query('INSERT IGNORE INTO transactions (id, nomor_transaksi, tanggal, sparepart_id, custom_item, part_numbers_alt, merek, jenis, jumlah, satuan, jumlah_dasar, harga_satuan, tujuan, keterangan, source, kasir, status_bayar, metode_bayar, bayar_tunai, transfer_amount, kembalian_diberikan, diskon, tanggal_lunas) VALUES ?', [values]);
+        // Verifikasi invoice ada di database
+        const [trxRows] = await conn.query(
+            'SELECT id, nomor_transaksi, status_bayar, harga_satuan, jumlah, diskon FROM transactions WHERE nomor_transaksi = ? ORDER BY id ASC',
+            [invoice]
+        );
+        if (trxRows.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ error: 'Invoice tidak ditemukan di database' });
         }
-        
-        // 2. Simpan data pajak jika ada
-        if (taxRecords?.length > 0) {
-            const values = taxRecords.map(t => [t.tax_id, parseInt(t.trx_id), t.tanggal, t.nomor_transaksi, t.part_number, t.nama, t.kategori, t.merek, t.status_bayar, t.pelanggan, t.jumlah, t.satuan, t.harga_satuan, t.subtotal, t.persentase_pajak, t.nilai_pajak]);
-            await connection.query('INSERT IGNORE INTO tax_records (tax_id, trx_id, tanggal, nomor_transaksi, part_number, nama, kategori, merek, status_bayar, pelanggan, jumlah, satuan, harga_satuan, subtotal, persentase_pajak, nilai_pajak) VALUES ?', [values]);
+
+        // Update setiap item harga_satuan
+        for (const item of items) {
+            await conn.query(
+                'UPDATE transactions SET harga_satuan = ? WHERE id = ? AND nomor_transaksi = ?',
+                [item.harga_satuan, item.id, invoice]
+            );
+
+            // Update tax_records jika ada
+            const [taxRows] = await conn.query(
+                'SELECT tax_id, jumlah, persentase_pajak FROM tax_records WHERE trx_id = ?',
+                [item.id]
+            );
+            for (const tax of taxRows) {
+                const newSubtotal = item.harga_satuan * tax.jumlah;
+                const newNilaiPajak = (newSubtotal * parseFloat(tax.persentase_pajak)) / 100;
+                await conn.query(
+                    'UPDATE tax_records SET harga_satuan = ?, subtotal = ?, nilai_pajak = ? WHERE tax_id = ?',
+                    [item.harga_satuan, newSubtotal, newNilaiPajak, tax.tax_id]
+                );
+            }
         }
-        
-        // 3. Simpan data retur ke tabel retur_records
-        if (retur) {
-            const r = retur;
-            await connection.query('INSERT INTO retur_records (id, parent_invoice, tanggal, kasir, pelanggan, items, exchange_items) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE parent_invoice=VALUES(parent_invoice), tanggal=VALUES(tanggal), kasir=VALUES(kasir), pelanggan=VALUES(pelanggan), items=VALUES(items), exchange_items=VALUES(exchange_items)', 
-            [r.id, r.parent_invoice, new Date(r.tanggal), r.kasir||'', r.pelanggan||'', JSON.stringify(r.items || []), JSON.stringify(r.exchange_items || [])]);
+
+        // Update diskon pada transaksi pertama (sesuai struktur yang ada)
+        if (diskon !== undefined && trxRows.length > 0) {
+            await conn.query(
+                'UPDATE transactions SET diskon = ? WHERE id = ?',
+                [diskon, trxRows[0].id]
+            );
         }
-        
-        res.json({ message: "Retur berhasil disimpan ke server" });
+
+        await conn.commit();
+        res.json({ message: 'Struk berhasil diedit', invoice: invoice });
     } catch (error) {
-        console.error("Error simpan retur:", error);
-        res.status(500).json({ error: error.message });
+        await conn.rollback();
+        console.error('Error edit struk:', error);
+        res.status(500).json({ error: 'Gagal menyimpan edit struk: ' + error.message });
     } finally {
-        if (connection) connection.release();
+        conn.release();
     }
 });
+
+// === ENDPOINT BARU: HAPUS CASH EXPENSE PER RECORD ===
+app.post('/api/cash-expense/delete', async (req, res) => {
+    const { id } = req.body;
+    try {
+        await pool.query('DELETE FROM cash_expenses WHERE id = ?', [id]);
+        res.json({ message: 'Pengeluaran kas berhasil dihapus' });
+    } catch (error) {
+        console.error('Error hapus cash expense:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// === ENDPOINT BARU: HAPUS CASH INFLOW PER RECORD ===
+app.post('/api/cash-inflow/delete', async (req, res) => {
+    const { id } = req.body;
+    try {
+        await pool.query('DELETE FROM cash_inflows WHERE id = ?', [id]);
+        res.json({ message: 'Tambahan kas berhasil dihapus' });
+    } catch (error) {
+        console.error('Error hapus cash inflow:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// === PAYOFF: DIPERBAIKI untuk mencatat kas masuk ===
+app.put('/api/transactions/payoff', async (req, res) => {
+    const { trxId } = req.body;
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        // Ambil data transaksi untuk menghitung total terbaru
+        const [trxRows] = await conn.query(
+            'SELECT * FROM transactions WHERE nomor_transaksi = ?',
+            [trxId]
+        );
+        if (trxRows.length === 0) {
+            await conn.rollback();
+            return res.status(404).json({ error: 'Invoice tidak ditemukan' });
+        }
+
+        // Cek apakah sudah lunas
+        const isAlreadyLunas = trxRows.every(t => t.status_bayar === 'Lunas');
+        if (isAlreadyLunas) {
+            await conn.rollback();
+            return res.status(400).json({ error: 'Invoice sudah lunas' });
+        }
+
+        // Hitung total terbaru dari database (bukan dari frontend)
+        const total = trxRows.reduce((sum, t) => sum + (t.harga_satuan * t.jumlah), 0) - (trxRows[0].diskon || 0);
+
+        // Update status menjadi lunas
+        await conn.query(
+            'UPDATE transactions SET status_bayar = "Lunas", keterangan = "Bon (Lunas)", tanggal_lunas = NOW() WHERE nomor_transaksi = ?',
+            [trxId]
+        );
+        await conn.query(
+            'UPDATE tax_records SET status_bayar = "Lunas" WHERE nomor_transaksi = ?',
+            [trxId]
+        );
+
+        // Catat kas masuk (cash inflow) sesuai nominal pelunasan terbaru
+        await conn.query(
+            'INSERT INTO cash_inflows (id, tanggal, jumlah, keterangan, kasir) VALUES (?, ?, ?, ?, ?)',
+            [Date.now(), new Date(), total, 'Pelunasan Bon: ' + trxId, trxRows[0].kasir || 'Admin']
+        );
+
+        await conn.commit();
+        res.json({ message: "Piutang berhasil dilunasi", total: total });
+    } catch (error) {
+        await conn.rollback();
+        console.error('Error payoff:', error);
+        res.status(500).json({ error: error.message });
+    } finally {
+        conn.release();
+    }
+});
+
 // 6. PARTNER
 app.post('/api/partner', async (req, res) => { try { await pool.query('INSERT INTO partners SET ?', req.body); res.json({message:"Partner disimpan"}); } catch(e){ res.status(500).json({error:e.message}); } });
 app.put('/api/partner/:id', async (req, res) => { try { await pool.query('UPDATE partners SET ? WHERE id = ?', [req.body, req.params.id]); res.json({message:"Partner diupdate"}); } catch(e){ res.status(500).json({error:e.message}); } });
 app.delete('/api/partner/:id', async (req, res) => { try { await pool.query('DELETE FROM partners WHERE id = ?', [req.params.id]); res.json({message:"Partner dihapus"}); } catch(e){ res.status(500).json({error:e.message}); } });
 
-// 7. SETTINGS
+// 7. SETTINGS — DIPERBAIKI: TIDAK ADA DELETE MASSAL
+// Hanya UPSERT, tidak pernah menghapus data lama
 app.put('/api/settings', async (req, res) => {
     const { kasAwal, activeShiftStart, masterPajak, users, returRecords, cashExpenses, cashInflows } = req.body;
     try {
@@ -438,38 +533,47 @@ app.put('/api/settings', async (req, res) => {
             kasAwal || 0, activeShiftStart || Date.now(), JSON.stringify(masterPajak || []), JSON.stringify(users || [])
         ]);
 
-        if (returRecords) {
-            if (returRecords.length > 0) {
-                const values = returRecords.map(r => [r.id, r.parent_invoice, new Date(r.tanggal), r.kasir||'', r.pelanggan||'', JSON.stringify(r.items || []), JSON.stringify(r.exchange_items || [])]);
-                await pool.query('INSERT INTO retur_records (id, parent_invoice, tanggal, kasir, pelanggan, items, exchange_items) VALUES ? ON DUPLICATE KEY UPDATE parent_invoice=VALUES(parent_invoice), tanggal=VALUES(tanggal), kasir=VALUES(kasir), pelanggan=VALUES(pelanggan), items=VALUES(items), exchange_items=VALUES(exchange_items)', [values]);
-                const ids = returRecords.map(r => r.id);
-                await pool.query('DELETE FROM retur_records WHERE id NOT IN (?)', [ids]);
-            } else {
-                await pool.query('DELETE FROM retur_records');
-            }
+        // UPSERT retur_records — TIDAK ADA DELETE
+        // Data retur adalah DATA PERMANEN, tidak boleh dihapus karena payload kosong
+        if (returRecords && Array.isArray(returRecords) && returRecords.length > 0) {
+            const values = returRecords.map(r => [
+                r.id,
+                r.parent_invoice,
+                new Date(r.tanggal),
+                r.kasir||'',
+                r.pelanggan||'',
+                JSON.stringify(r.items || []),
+                JSON.stringify(r.exchange_items || [])
+            ]);
+            await pool.query(
+                'INSERT INTO retur_records (id, parent_invoice, tanggal, kasir, pelanggan, items, exchange_items) VALUES ? ON DUPLICATE KEY UPDATE parent_invoice=VALUES(parent_invoice), tanggal=VALUES(tanggal), kasir=VALUES(kasir), pelanggan=VALUES(pelanggan), items=VALUES(items), exchange_items=VALUES(exchange_items)',
+                [values]
+            );
         }
+        // JIKA returRecords kosong/null: TIDAK MELAKUKAN APA-APA
+        // Data retur lama tetap aman di database
 
-        if (cashExpenses) {
-            if (cashExpenses.length > 0) {
-                const values = cashExpenses.map(e => [e.id, new Date(e.tanggal), e.jumlah, e.keterangan||'', e.kasir||'']);
-                await pool.query('INSERT INTO cash_expenses (id, tanggal, jumlah, keterangan, kasir) VALUES ? ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal), jumlah=VALUES(jumlah), keterangan=VALUES(keterangan), kasir=VALUES(kasir)', [values]);
-                const ids = cashExpenses.map(e => e.id);
-                await pool.query('DELETE FROM cash_expenses WHERE id NOT IN (?)', [ids]);
-            } else {
-                await pool.query('DELETE FROM cash_expenses');
-            }
+        // UPSERT cash_expenses — TIDAK ADA DELETE
+        if (cashExpenses && Array.isArray(cashExpenses) && cashExpenses.length > 0) {
+            const values = cashExpenses.map(e => [e.id, new Date(e.tanggal), e.jumlah, e.keterangan||'', e.kasir||'']);
+            await pool.query(
+                'INSERT INTO cash_expenses (id, tanggal, jumlah, keterangan, kasir) VALUES ? ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal), jumlah=VALUES(jumlah), keterangan=VALUES(keterangan), kasir=VALUES(kasir)',
+                [values]
+            );
         }
+        // JIKA cashExpenses kosong/null: TIDAK MELAKUKAN APA-APA
+        // Penghapusan cash_expense hanya melalui endpoint /api/cash-expense/delete
 
-        if (cashInflows) {
-            if (cashInflows.length > 0) {
-                const values = cashInflows.map(i => [i.id, new Date(i.tanggal), i.jumlah, i.keterangan||'', i.kasir||'']);
-                await pool.query('INSERT INTO cash_inflows (id, tanggal, jumlah, keterangan, kasir) VALUES ? ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal), jumlah=VALUES(jumlah), keterangan=VALUES(keterangan), kasir=VALUES(kasir)', [values]);
-                const ids = cashInflows.map(i => i.id);
-                await pool.query('DELETE FROM cash_inflows WHERE id NOT IN (?)', [ids]);
-            } else {
-                await pool.query('DELETE FROM cash_inflows');
-            }
+        // UPSERT cash_inflows — TIDAK ADA DELETE
+        if (cashInflows && Array.isArray(cashInflows) && cashInflows.length > 0) {
+            const values = cashInflows.map(i => [i.id, new Date(i.tanggal), i.jumlah, i.keterangan||'', i.kasir||'']);
+            await pool.query(
+                'INSERT INTO cash_inflows (id, tanggal, jumlah, keterangan, kasir) VALUES ? ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal), jumlah=VALUES(jumlah), keterangan=VALUES(keterangan), kasir=VALUES(kasir)',
+                [values]
+            );
         }
+        // JIKA cashInflows kosong/null: TIDAK MELAKUKAN APA-APA
+        // Penghapusan cash_inflow hanya melalui endpoint /api/cash-inflow/delete
 
         res.json({ message: "Settings berhasil disimpan" });
     } catch (error) {
