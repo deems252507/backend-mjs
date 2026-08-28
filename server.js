@@ -96,6 +96,15 @@ app.get('/api/init', async (req, res) => {
             kasir VARCHAR(100), pelanggan VARCHAR(255), items JSON, exchange_items JSON
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
+        // === TAMBAHAN: Cek & tambah kolom exchange_items jika tidak ada (untuk DB lama) ===
+        try {
+            const [cols] = await pool.query("SHOW COLUMNS FROM retur_records LIKE 'exchange_items'");
+            if (cols.length === 0) {
+                await pool.query("ALTER TABLE retur_records ADD COLUMN exchange_items JSON");
+                console.log("Kolom exchange_items berhasil ditambahkan ke retur_records");
+            }
+        } catch(e) { console.error("Gagal cek/tambah kolom exchange_items:", e.message); }
+
         await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
             id INT PRIMARY KEY DEFAULT 1, kas_awal BIGINT DEFAULT 0, active_shift_start BIGINT,
             master_pajak JSON, users JSON
