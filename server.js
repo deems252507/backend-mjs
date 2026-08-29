@@ -1425,172 +1425,172 @@ app.post('/api/transactions', async (req, res) => {
 });
 
 // ============================================================
-// 6. SIMPAN RETUR
+// SIMPAN RETUR
+// Kompatibel dengan beberapa format request dari frontend
 // ============================================================
-
 app.post('/api/transaction/retur', async (req, res) => {
-
     const body = req.body || {};
 
-    console.log(
-        '[RETUR] Request diterima'
-    );
+    console.log('==========================================');
+    console.log('[RETUR] Request diterima');
+    console.log('[RETUR] Body keys:', Object.keys(body));
+    console.log('[RETUR] Body:', JSON.stringify(body, null, 2));
+    console.log('==========================================');
 
-    // ========================================================
-    // DUKUNG BEBERAPA FORMAT FRONTEND
-    // ========================================================
+    /*
+     * Frontend bisa saja mengirim:
+     *
+     * {
+     *   returRecord: {...},
+     *   transactions: [...],
+     *   taxRecords: [...]
+     * }
+     *
+     * atau:
+     *
+     * {
+     *   retur: {...},
+     *   transactions: [...],
+     *   taxRecords: [...]
+     * }
+     *
+     * atau langsung:
+     *
+     * {
+     *   id: "...",
+     *   parent_invoice: "...",
+     *   items: [...]
+     * }
+     */
 
-    const returRecord =
+    let returRecord =
         body.returRecord ||
         body.retur ||
-        body.retur_record ||
+        body.returnRecord ||
+        body.return ||
         null;
 
-    const transactions =
-        Array.isArray(body.transactions)
-            ? body.transactions
-            : [];
+    let transactions =
+        body.transactions ||
+        body.transaction ||
+        [];
 
-    const taxRecords =
-        Array.isArray(body.taxRecords)
-            ? body.taxRecords
-            : [];
+    let taxRecords =
+        body.taxRecords ||
+        body.tax_records ||
+        [];
 
-    // ========================================================
+    // Jika frontend langsung mengirim object retur tanpa wrapper
+    if (!returRecord && body.id && (body.parent_invoice || body.parentInvoice)) {
+        returRecord = body;
+    }
+
+    // Pastikan array
+    if (!Array.isArray(transactions)) {
+        transactions = [];
+    }
+
+    if (!Array.isArray(taxRecords)) {
+        taxRecords = [];
+    }
+
+    // ============================================================
     // VALIDASI RETUR
-    // ========================================================
-
-    if (
-        !returRecord ||
-        typeof returRecord !== 'object'
-    ) {
-
-        console.error(
-            '[RETUR] returRecord tidak ditemukan:',
-            body
-        );
+    // ============================================================
+    if (!returRecord || typeof returRecord !== 'object') {
+        console.error('[RETUR] returRecord tidak ditemukan.');
+        console.error('[RETUR] Body yang diterima:', body);
 
         return res.status(400).json({
             success: false,
-            error: 'Data retur tidak valid: returRecord tidak ditemukan'
+            error: 'Data retur tidak valid: returRecord tidak ditemukan',
+            receivedKeys: Object.keys(body)
         });
     }
 
-    // ========================================================
-    // ID RETUR
-    // ========================================================
-
+    // ============================================================
+    // NORMALISASI NAMA FIELD
+    // ============================================================
     const returId =
-        returRecord.id ??
-        returRecord.retur_id ??
-        returRecord.return_id ??
-        null;
-
-    if (
-        returId === null ||
-        returId === undefined ||
-        String(returId).trim() === ''
-    ) {
-
-        console.error(
-            '[RETUR] ID retur kosong:',
-            returRecord
-        );
-
-        return res.status(400).json({
-            success: false,
-            error: 'Data retur tidak valid: ID retur kosong'
-        });
-    }
-
-    // ========================================================
-    // INVOICE INDUK
-    // ========================================================
+        returRecord.id ||
+        returRecord.retur_id ||
+        returRecord.returId;
 
     const parentInvoice =
         returRecord.parent_invoice ||
         returRecord.parentInvoice ||
         returRecord.invoice ||
-        returRecord.nomor_transaksi ||
+        returRecord.no_invoice ||
+        returRecord.nomor_transaksi;
+
+    const tanggal =
+        returRecord.tanggal ||
+        returRecord.date ||
+        new Date();
+
+    const kasir =
+        returRecord.kasir ||
+        returRecord.user ||
+        returRecord.operator ||
         '';
 
-    if (
-        parentInvoice === null ||
-        parentInvoice === undefined ||
-        String(parentInvoice).trim() === ''
-    ) {
+    const pelanggan =
+        returRecord.pelanggan ||
+        returRecord.customer ||
+        returRecord.nama_pelanggan ||
+        '';
 
-        console.error(
-            '[RETUR] Invoice induk kosong:',
-            returRecord
-        );
+    const items =
+        returRecord.items ||
+        returRecord.retur_items ||
+        returRecord.return_items ||
+        [];
 
+    const exchangeItems =
+        returRecord.exchange_items ||
+        returRecord.exchangeItems ||
+        returRecord.tukar_items ||
+        returRecord.tukarItems ||
+        [];
+
+    // ============================================================
+    // VALIDASI FIELD WAJIB
+    // ============================================================
+    if (!returId) {
+        return res.status(400).json({
+            success: false,
+            error: 'Data retur tidak valid: ID retur tidak ditemukan'
+        });
+    }
+
+    if (!parentInvoice) {
         return res.status(400).json({
             success: false,
             error: 'Data retur tidak valid: nomor invoice tidak ditemukan'
         });
     }
 
-    // ========================================================
-    // ITEMS
-    // ========================================================
+    // Pastikan items berbentuk array
+    const normalizedItems = Array.isArray(items) ? items : [];
 
-    let items =
-        returRecord.items ||
-        returRecord.retur_items ||
-        [];
+    const normalizedExchangeItems =
+        Array.isArray(exchangeItems) ? exchangeItems : [];
 
-    if (!Array.isArray(items)) {
-        items = [];
-    }
-
-    // ========================================================
-    // BARANG TUKAR
-    // ========================================================
-
-    let exchangeItems =
-        returRecord.exchange_items ||
-        returRecord.exchangeItems ||
-        returRecord.barang_tukar ||
-        [];
-
-    if (!Array.isArray(exchangeItems)) {
-        exchangeItems = [];
-    }
-
-    // ========================================================
-    // DATA LAIN
-    // ========================================================
-
-    const tanggal =
-        safeDate(
-            returRecord.tanggal ||
-            returRecord.date
-        );
-
-    const kasir =
-        safeString(
-            returRecord.kasir
-        );
-
-    const pelanggan =
-        safeString(
-            returRecord.pelanggan ||
-            returRecord.customer
-        );
-
-    const conn =
-        await pool.getConnection();
+    // ============================================================
+    // DATABASE TRANSACTION
+    // ============================================================
+    let conn;
 
     try {
+        conn = await pool.getConnection();
 
         await conn.beginTransaction();
 
-        // ====================================================
-        // 1. SIMPAN RETUR RECORD
-        // ====================================================
-
-        await conn.query(`
+        // ========================================================
+        // SIMPAN RETUR RECORD
+        // ========================================================
+        await conn.query(
+            `
             INSERT INTO retur_records
             (
                 id,
@@ -1603,144 +1603,90 @@ app.post('/api/transaction/retur', async (req, res) => {
             )
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
+                parent_invoice = VALUES(parent_invoice),
+                tanggal = VALUES(tanggal),
+                kasir = VALUES(kasir),
+                pelanggan = VALUES(pelanggan),
+                items = VALUES(items),
+                exchange_items = VALUES(exchange_items)
+            `,
+            [
+                String(returId),
+                String(parentInvoice),
+                new Date(tanggal),
+                String(kasir),
+                String(pelanggan),
+                JSON.stringify(normalizedItems),
+                JSON.stringify(normalizedExchangeItems)
+            ]
+        );
 
-                parent_invoice =
-                    VALUES(parent_invoice),
-
-                tanggal =
-                    VALUES(tanggal),
-
-                kasir =
-                    VALUES(kasir),
-
-                pelanggan =
-                    VALUES(pelanggan),
-
-                items =
-                    VALUES(items),
-
-                exchange_items =
-                    VALUES(exchange_items)
-        `, [
-
-            String(returId),
-
-            String(parentInvoice),
-
-            tanggal,
-
-            kasir,
-
-            pelanggan,
-
-            JSON.stringify(items),
-
-            JSON.stringify(exchangeItems)
-        ]);
-
-        // ====================================================
-        // 2. SIMPAN TRANSAKSI RETUR / BARANG TUKAR
-        // ====================================================
-
+        // ========================================================
+        // SIMPAN TRANSAKSI RETUR / TRANSAKSI TAMBAHAN
+        // ========================================================
         if (transactions.length > 0) {
 
             const values = transactions
-                .filter(t => safeInteger(t.id) !== null)
+                .filter(t => t && t.id != null)
                 .map(t => [
+                    parseInt(t.id),
 
-                    safeInteger(t.id),
+                    t.nomor_transaksi ||
+                    t.nomorTransaksi ||
+                    String(returId),
 
-                    safeString(
-                        t.nomor_transaksi ||
-                        returId
-                    ),
+                    t.tanggal || new Date(),
 
-                    safeDate(t.tanggal),
+                    t.sparepart_id ??
+                    t.sparepartId ??
+                    null,
 
-                    safeInteger(
-                        t.sparepart_id
-                    ),
+                    t.custom_item ||
+                    t.customItem ||
+                    null,
 
-                    t.custom_item || null,
+                    t.part_numbers_alt ||
+                    t.partNumbersAlt ||
+                    '',
 
-                    safeString(
-                        t.part_numbers_alt
-                    ),
+                    t.merek || '',
 
-                    safeString(
-                        t.merek
-                    ),
+                    t.jenis || 'Keluar',
 
-                    safeString(
-                        t.jenis,
-                        'Masuk'
-                    ),
+                    Number(t.jumlah) || 0,
 
-                    safeNumber(
-                        t.jumlah
-                    ),
+                    t.satuan || 'Pcs',
 
-                    safeString(
-                        t.satuan
-                    ),
+                    Number(t.jumlah_dasar ?? t.jumlahDasar) || 0,
 
-                    safeNumber(
-                        t.jumlah_dasar
-                    ),
+                    Number(t.harga_satuan ?? t.hargaSatuan) || 0,
 
-                    safeNumber(
-                        t.harga_satuan
-                    ),
+                    t.tujuan || '',
 
-                    safeString(
-                        t.tujuan
-                    ),
+                    t.keterangan || '',
 
-                    safeString(
-                        t.keterangan
-                    ),
+                    t.source || 'retur',
 
-                    safeString(
-                        t.source,
-                        'retur'
-                    ),
+                    t.kasir || kasir || '',
 
-                    safeString(
-                        t.kasir || kasir
-                    ),
+                    t.status_bayar || 'Lunas',
 
-                    safeString(
-                        t.status_bayar
-                    ),
+                    t.metode_bayar || '',
 
-                    safeString(
-                        t.metode_bayar
-                    ),
+                    Number(t.bayar_tunai) || 0,
 
-                    safeNumber(
-                        t.bayar_tunai
-                    ),
+                    Number(t.transfer_amount) || 0,
 
-                    safeNumber(
-                        t.transfer_amount
-                    ),
+                    Number(t.kembalian_diberikan) || 0,
 
-                    safeNumber(
-                        t.kembalian_diberikan
-                    ),
+                    Number(t.diskon) || 0,
 
-                    safeNumber(
-                        t.diskon
-                    ),
-
-                    t.tanggal_lunas
-                        ? safeDate(t.tanggal_lunas)
-                        : null
+                    t.tanggal_lunas || null
                 ]);
 
             if (values.length > 0) {
-
-                await conn.query(`
+                await conn.query(
+                    `
                     INSERT IGNORE INTO transactions
                     (
                         id,
@@ -1768,91 +1714,78 @@ app.post('/api/transaction/retur', async (req, res) => {
                         tanggal_lunas
                     )
                     VALUES ?
-                `, [values]);
+                    `,
+                    [values]
+                );
             }
         }
 
-        // ====================================================
-        // 3. SIMPAN TAX RECORD
-        // ====================================================
-
+        // ========================================================
+        // SIMPAN TAX RECORD
+        // ========================================================
         if (taxRecords.length > 0) {
 
             const values = taxRecords
-                .filter(t => t && t.tax_id)
+                .filter(t => t && t.tax_id != null)
                 .map(t => [
+                    String(t.tax_id),
 
-                    safeString(
-                        t.tax_id
-                    ),
-
-                    safeInteger(
-                        t.trx_id,
+                    parseInt(
+                        t.trx_id ??
+                        t.trxId ??
                         0
                     ),
 
-                    safeDate(
-                        t.tanggal
-                    ),
+                    t.tanggal || new Date(),
 
-                    safeString(
-                        t.nomor_transaksi ||
-                        returId
-                    ),
+                    t.nomor_transaksi ||
+                    t.nomorTransaksi ||
+                    String(returId),
 
-                    safeString(
-                        t.part_number
-                    ),
+                    t.part_number ||
+                    t.partNumber ||
+                    '',
 
-                    safeString(
-                        t.nama
-                    ),
+                    t.nama || '',
 
-                    safeString(
-                        t.kategori
-                    ),
+                    t.kategori || '',
 
-                    safeString(
-                        t.merek
-                    ),
+                    t.merek || '',
 
-                    safeString(
-                        t.status_bayar
-                    ),
+                    t.status_bayar ||
+                    t.statusBayar ||
+                    'Lunas',
 
-                    safeString(
-                        t.pelanggan ||
-                        pelanggan
-                    ),
+                    t.pelanggan ||
+                    t.customer ||
+                    pelanggan ||
+                    '',
 
-                    safeNumber(
-                        t.jumlah
-                    ),
+                    Number(t.jumlah) || 0,
 
-                    safeString(
-                        t.satuan
-                    ),
+                    t.satuan || 'Pcs',
 
-                    safeNumber(
-                        t.harga_satuan
-                    ),
+                    Number(
+                        t.harga_satuan ??
+                        t.hargaSatuan
+                    ) || 0,
 
-                    safeNumber(
-                        t.subtotal
-                    ),
+                    Number(t.subtotal) || 0,
 
-                    safeNumber(
-                        t.persentase_pajak
-                    ),
+                    Number(
+                        t.persentase_pajak ??
+                        t.persentasePajak
+                    ) || 0,
 
-                    safeNumber(
-                        t.nilai_pajak
-                    )
+                    Number(
+                        t.nilai_pajak ??
+                        t.nilaiPajak
+                    ) || 0
                 ]);
 
             if (values.length > 0) {
-
-                await conn.query(`
+                await conn.query(
+                    `
                     INSERT IGNORE INTO tax_records
                     (
                         tax_id,
@@ -1873,84 +1806,69 @@ app.post('/api/transaction/retur', async (req, res) => {
                         nilai_pajak
                     )
                     VALUES ?
-                `, [values]);
+                    `,
+                    [values]
+                );
             }
         }
 
-        // ====================================================
-        // 4. VERIFIKASI
-        // ====================================================
-
-        const [verify] =
-            await conn.query(`
-                SELECT
-                    id,
-                    parent_invoice
-                FROM retur_records
-                WHERE id = ?
-                LIMIT 1
-            `, [
-                String(returId)
-            ]);
+        // ========================================================
+        // VERIFIKASI RETUR
+        // ========================================================
+        const [verify] = await conn.query(
+            `
+            SELECT
+                id,
+                parent_invoice,
+                tanggal
+            FROM retur_records
+            WHERE id = ?
+            LIMIT 1
+            `,
+            [String(returId)]
+        );
 
         if (verify.length === 0) {
-
             await conn.rollback();
-
-            console.error(
-                '[RETUR] Verifikasi gagal:',
-                returId
-            );
 
             return res.status(500).json({
                 success: false,
-                error: 'Retur gagal diverifikasi setelah disimpan'
+                error: 'Verifikasi gagal: data retur tidak tersimpan di database'
             });
         }
 
-        // ====================================================
-        // 5. COMMIT
-        // ====================================================
-
+        // ========================================================
+        // COMMIT
+        // ========================================================
         await conn.commit();
 
         invalidateDataCache();
 
         console.log(
-            '[RETUR] BERHASIL:',
-            {
-                returId,
-                parentInvoice,
-                transactions:
-                    transactions.length,
-                taxRecords:
-                    taxRecords.length
-            }
+            '[RETUR] Berhasil disimpan:',
+            String(returId),
+            'Invoice:',
+            String(parentInvoice)
         );
 
         return res.json({
-
             success: true,
-
-            message:
-                'Retur berhasil disimpan ke server',
-
-            returId:
-                String(returId),
-
-            parentInvoice:
-                String(parentInvoice)
+            message: 'Retur berhasil disimpan ke server',
+            returId: String(returId),
+            parentInvoice: String(parentInvoice)
         });
 
     } catch (error) {
 
-        try {
-            await conn.rollback();
-        } catch (rollbackError) {
-            console.error(
-                '[RETUR] Rollback error:',
-                rollbackError
-            );
+        if (conn) {
+            try {
+                await conn.rollback();
+            } catch (rollbackError) {
+                console.error(
+                    '[RETUR] Rollback error:',
+                    rollbackError
+                );
+            }
         }
 
         console.error(
@@ -1959,20 +1877,17 @@ app.post('/api/transaction/retur', async (req, res) => {
         );
 
         return res.status(500).json({
-
             success: false,
-
-            error:
-                'Gagal menyimpan retur: ' +
-                error.message
+            error: 'Gagal menyimpan retur: ' + error.message
         });
 
     } finally {
 
-        conn.release();
+        if (conn) {
+            conn.release();
+        }
     }
 });
-
 // ============================================================
 // 7. HAPUS INVOICE
 // ============================================================
