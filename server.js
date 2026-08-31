@@ -1,71 +1,4 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>server.js - Versi HTML untuk Salin</title>
-<style>
-    body {
-        margin: 0;
-        background: #111827;
-        color: #e5e7eb;
-        font-family: Consolas, "Courier New", monospace;
-    }
-    .topbar {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        background: #1f2937;
-        border-bottom: 1px solid #374151;
-        padding: 12px 16px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-    }
-    .title {
-        font-family: Arial, sans-serif;
-        font-weight: 700;
-        color: #fff;
-    }
-    button {
-        border: 0;
-        border-radius: 8px;
-        padding: 9px 14px;
-        cursor: pointer;
-        background: #2563eb;
-        color: white;
-        font-weight: 700;
-    }
-    button:hover { background: #1d4ed8; }
-    textarea {
-        display: block;
-        box-sizing: border-box;
-        width: 100%;
-        min-height: calc(100vh - 58px);
-        resize: none;
-        border: 0;
-        outline: 0;
-        padding: 18px;
-        background: #0b1120;
-        color: #d1d5db;
-        font: 14px/1.55 Consolas, "Courier New", monospace;
-        tab-size: 4;
-        white-space: pre;
-        overflow: auto;
-    }
-</style>
-</head>
-<body>
-<div class="topbar">
-    <div class="title">server_final_compatible.js — klik "Salin Semua" lalu Ctrl+C / tempel ke server.js</div>
-    <button onclick="copyCode()">Salin Semua</button>
-</div>
-
-<textarea id="code" spellcheck="false"></textarea>
-
-<script>
-const code = `const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2/promise');
@@ -212,7 +145,7 @@ function safeJSON(value, defaultValue = []) {
 app.get('/api/init', async (req, res) => {
     try {
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS spareparts (
                 id BIGINT PRIMARY KEY,
                 kode VARCHAR(50),
@@ -235,9 +168,9 @@ app.get('/api/init', async (req, res) => {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS transactions (
                 id BIGINT PRIMARY KEY,
                 nomor_transaksi VARCHAR(50),
@@ -265,9 +198,9 @@ app.get('/api/init', async (req, res) => {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS partners (
                 id BIGINT PRIMARY KEY,
                 nama VARCHAR(255),
@@ -277,9 +210,9 @@ app.get('/api/init', async (req, res) => {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS cash_expenses (
                 id BIGINT PRIMARY KEY,
                 tanggal DATETIME,
@@ -289,9 +222,9 @@ app.get('/api/init', async (req, res) => {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS cash_inflows (
                 id BIGINT PRIMARY KEY,
                 tanggal DATETIME,
@@ -301,9 +234,9 @@ app.get('/api/init', async (req, res) => {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS tax_records (
                 tax_id VARCHAR(100) PRIMARY KEY,
                 trx_id BIGINT,
@@ -324,9 +257,9 @@ app.get('/api/init', async (req, res) => {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS retur_records (
                 id VARCHAR(50) PRIMARY KEY,
                 parent_invoice VARCHAR(50),
@@ -338,22 +271,22 @@ app.get('/api/init', async (req, res) => {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
         // =====================================================
         // Pastikan exchange_items tersedia pada database lama
         // =====================================================
 
         try {
-            await pool.query(\`
+            await pool.query(`
                 ALTER TABLE retur_records
                 ADD COLUMN exchange_items JSON
-            \`);
+            `);
         } catch (e) {
             // Kolom kemungkinan sudah ada.
         }
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS app_settings (
                 id INT PRIMARY KEY DEFAULT 1,
                 kas_awal BIGINT DEFAULT 0,
@@ -364,12 +297,12 @@ app.get('/api/init', async (req, res) => {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
         // =====================================================
         // MASTER DATA TERPISAH - tetap kompatibel dengan JSON lama
         // =====================================================
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS master_pajak (
                 id BIGINT PRIMARY KEY,
                 jenis VARCHAR(100) NOT NULL,
@@ -379,9 +312,9 @@ app.get('/api/init', async (req, res) => {
                 keterangan VARCHAR(255) DEFAULT '',
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS master_bank (
                 id BIGINT PRIMARY KEY,
                 nama VARCHAR(100) NOT NULL,
@@ -391,9 +324,9 @@ app.get('/api/init', async (req, res) => {
                 keterangan VARCHAR(255) DEFAULT '',
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 username VARCHAR(100) PRIMARY KEY,
                 password VARCHAR(255) NOT NULL,
@@ -403,9 +336,9 @@ app.get('/api/init', async (req, res) => {
                 data JSON NULL,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS shift_sessions (
                 id VARCHAR(100) PRIMARY KEY,
                 username VARCHAR(100) DEFAULT '',
@@ -417,9 +350,9 @@ app.get('/api/init', async (req, res) => {
                 data JSON NULL,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
-        await pool.query(\`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS audit_trail (
                 id VARCHAR(100) PRIMARY KEY,
                 timestamp BIGINT DEFAULT 0,
@@ -430,31 +363,31 @@ app.get('/api/init', async (req, res) => {
                 data JSON NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        \`);
+        `);
 
         // Kolom kompatibilitas pada app_settings. Data lama tidak dihapus.
-        try { await pool.query(\`ALTER TABLE app_settings ADD COLUMN master_bank JSON NULL\`); } catch (e) {}
-        try { await pool.query(\`ALTER TABLE app_settings ADD COLUMN audit_trail JSON NULL\`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE app_settings ADD COLUMN master_bank JSON NULL`); } catch (e) {}
+        try { await pool.query(`ALTER TABLE app_settings ADD COLUMN audit_trail JSON NULL`); } catch (e) {}
 
         // Pastikan kolom shift_sessions tersedia pada database lama.
         try {
-            await pool.query(\`
+            await pool.query(`
                 ALTER TABLE app_settings
                 ADD COLUMN shift_sessions JSON
-            \`);
+            `);
         } catch (e) {
             // Kolom sudah ada, lanjut.
         }
 
-        const [settings] = await pool.query(\`
+        const [settings] = await pool.query(`
             SELECT *
             FROM app_settings
             WHERE id = 1
-        \`);
+        `);
 
         if (settings.length === 0) {
 
-            await pool.query(\`
+            await pool.query(`
                 INSERT INTO app_settings
                 (
                     id,
@@ -467,7 +400,7 @@ app.get('/api/init', async (req, res) => {
                     audit_trail
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            \`, [
+            `, [
                 1,
                 0,
                 Date.now(),
@@ -541,10 +474,10 @@ app.get('/api/init', async (req, res) => {
             { id: 6, jenis: 'Lainnya', persentase: 11 }
         ];
         for (const p of defaultPajak) {
-            await pool.query(\`
+            await pool.query(`
                 INSERT IGNORE INTO master_pajak (id, jenis, persentase, kode_pajak, aktif, keterangan)
                 VALUES (?, ?, ?, ?, 1, '')
-            \`, [p.id, p.jenis, p.persentase, '']);
+            `, [p.id, p.jenis, p.persentase, '']);
         }
 
         const defaultUsers = [
@@ -554,22 +487,22 @@ app.get('/api/init', async (req, res) => {
             { username:'siang', password:'siang123', role:'Kasir', name:'Kasir Siang' }
         ];
         for (const u of defaultUsers) {
-            await pool.query(\`
+            await pool.query(`
                 INSERT IGNORE INTO users (username, password, role, name, aktif, data)
                 VALUES (?, ?, ?, ?, 1, ?)
-            \`, [u.username, u.password, u.role, u.name, JSON.stringify(u)]);
+            `, [u.username, u.password, u.role, u.name, JSON.stringify(u)]);
         }
 
         // Jika app_settings lama kosong, isi dari tabel master tanpa menghapus data.
-        const [mpCount] = await pool.query(\`SELECT COUNT(*) AS n FROM master_pajak WHERE aktif = 1\`);
-        const [uCount] = await pool.query(\`SELECT COUNT(*) AS n FROM users WHERE aktif = 1\`);
+        const [mpCount] = await pool.query(`SELECT COUNT(*) AS n FROM master_pajak WHERE aktif = 1`);
+        const [uCount] = await pool.query(`SELECT COUNT(*) AS n FROM users WHERE aktif = 1`);
         if (Number(mpCount[0].n) > 0) {
-            const [mpRows] = await pool.query(\`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak ORDER BY id\`);
-            await pool.query(\`UPDATE app_settings SET master_pajak = ? WHERE id = 1\`, [JSON.stringify(mpRows.map(x => ({jenis:x.jenis, persentase:Number(x.persentase), kode_pajak:x.kode_pajak || ''})))]);
+            const [mpRows] = await pool.query(`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak ORDER BY id`);
+            await pool.query(`UPDATE app_settings SET master_pajak = ? WHERE id = 1`, [JSON.stringify(mpRows.map(x => ({jenis:x.jenis, persentase:Number(x.persentase), kode_pajak:x.kode_pajak || ''})))]);
         }
         if (Number(uCount[0].n) > 0) {
-            const [uRows] = await pool.query(\`SELECT username, password, role, name FROM users WHERE aktif = 1 ORDER BY username\`);
-            await pool.query(\`UPDATE app_settings SET users = ? WHERE id = 1\`, [JSON.stringify(uRows)]);
+            const [uRows] = await pool.query(`SELECT username, password, role, name FROM users WHERE aktif = 1 ORDER BY username`);
+            await pool.query(`UPDATE app_settings SET users = ? WHERE id = 1`, [JSON.stringify(uRows)]);
         }
 
         res.json({
@@ -630,7 +563,7 @@ app.post('/api/migrate', async (req, res) => {
 
             for (let i = 0; i < values.length; i += 500) {
 
-                await pool.query(\`
+                await pool.query(`
                     INSERT IGNORE INTO spareparts
                     (
                         id,
@@ -653,7 +586,7 @@ app.post('/api/migrate', async (req, res) => {
                         keterangan
                     )
                     VALUES ?
-                \`, [
+                `, [
                     values.slice(i, i + 500)
                 ]);
             }
@@ -723,7 +656,7 @@ app.post('/api/migrate', async (req, res) => {
 
             for (let i = 0; i < values.length; i += 500) {
 
-                await pool.query(\`
+                await pool.query(`
                     INSERT IGNORE INTO transactions
                     (
                         id,
@@ -751,7 +684,7 @@ app.post('/api/migrate', async (req, res) => {
                         tanggal_lunas
                     )
                     VALUES ?
-                \`, [
+                `, [
                     values.slice(i, i + 500)
                 ]);
             }
@@ -778,7 +711,7 @@ app.post('/api/migrate', async (req, res) => {
 
             if (values.length > 0) {
 
-                await pool.query(\`
+                await pool.query(`
                     INSERT IGNORE INTO partners
                     (
                         id,
@@ -788,7 +721,7 @@ app.post('/api/migrate', async (req, res) => {
                         alamat
                     )
                     VALUES ?
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -813,7 +746,7 @@ app.post('/api/migrate', async (req, res) => {
 
             if (values.length > 0) {
 
-                await pool.query(\`
+                await pool.query(`
                     INSERT IGNORE INTO cash_expenses
                     (
                         id,
@@ -823,7 +756,7 @@ app.post('/api/migrate', async (req, res) => {
                         kasir
                     )
                     VALUES ?
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -848,7 +781,7 @@ app.post('/api/migrate', async (req, res) => {
 
             if (values.length > 0) {
 
-                await pool.query(\`
+                await pool.query(`
                     INSERT IGNORE INTO cash_inflows
                     (
                         id,
@@ -858,7 +791,7 @@ app.post('/api/migrate', async (req, res) => {
                         kasir
                     )
                     VALUES ?
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -894,7 +827,7 @@ app.post('/api/migrate', async (req, res) => {
 
             if (values.length > 0) {
 
-                await pool.query(\`
+                await pool.query(`
                     INSERT IGNORE INTO tax_records
                     (
                         tax_id,
@@ -915,7 +848,7 @@ app.post('/api/migrate', async (req, res) => {
                         nilai_pajak
                     )
                     VALUES ?
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -928,7 +861,7 @@ app.post('/api/migrate', async (req, res) => {
             oldData.users
         ) {
 
-            await pool.query(\`
+            await pool.query(`
                 UPDATE app_settings
                 SET
                     kas_awal = ?,
@@ -937,7 +870,7 @@ app.post('/api/migrate', async (req, res) => {
                     users = ?,
                     shift_sessions = ?
                 WHERE id = 1
-            \`, [
+            `, [
                 safeNumber(oldData.kasAwal),
                 oldData.activeShiftStart || Date.now(),
                 JSON.stringify(oldData.masterPajak || []),
@@ -985,50 +918,50 @@ app.get('/api/data', async (req, res) => {
 
         connection = await pool.getConnection();
 
-        const [spareparts] = await connection.query(\`
+        const [spareparts] = await connection.query(`
             SELECT *
             FROM spareparts
-        \`);
+        `);
 
-        const [transactions] = await connection.query(\`
+        const [transactions] = await connection.query(`
             SELECT *
             FROM transactions
-        \`);
+        `);
 
-        const [partners] = await connection.query(\`
+        const [partners] = await connection.query(`
             SELECT *
             FROM partners
-        \`);
+        `);
 
-        const [cashExpenses] = await connection.query(\`
+        const [cashExpenses] = await connection.query(`
             SELECT *
             FROM cash_expenses
-        \`);
+        `);
 
-        const [cashInflows] = await connection.query(\`
+        const [cashInflows] = await connection.query(`
             SELECT *
             FROM cash_inflows
-        \`);
+        `);
 
-        const [taxRecords] = await connection.query(\`
+        const [taxRecords] = await connection.query(`
             SELECT *
             FROM tax_records
-        \`);
+        `);
 
-        const [masterPajakRows] = await connection.query(\`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak WHERE aktif = 1 ORDER BY id\`);
-        const [masterBankRows] = await connection.query(\`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank WHERE aktif = 1 ORDER BY id\`);
-        const [userRows] = await connection.query(\`SELECT username, password, role, name, aktif, data FROM users WHERE aktif = 1 ORDER BY username\`);
-        const [shiftRows] = await connection.query(\`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC\`);
-        const [auditRows] = await connection.query(\`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000\`);
+        const [masterPajakRows] = await connection.query(`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak WHERE aktif = 1 ORDER BY id`);
+        const [masterBankRows] = await connection.query(`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank WHERE aktif = 1 ORDER BY id`);
+        const [userRows] = await connection.query(`SELECT username, password, role, name, aktif, data FROM users WHERE aktif = 1 ORDER BY username`);
+        const [shiftRows] = await connection.query(`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC`);
+        const [auditRows] = await connection.query(`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000`);
 
         let returs = [];
 
         try {
 
-            const [returResult] = await connection.query(\`
+            const [returResult] = await connection.query(`
                 SELECT *
                 FROM retur_records
-            \`);
+            `);
 
             returs = returResult;
 
@@ -1040,11 +973,11 @@ app.get('/api/data', async (req, res) => {
             );
         }
 
-        const [settings] = await connection.query(\`
+        const [settings] = await connection.query(`
             SELECT *
             FROM app_settings
             WHERE id = 1
-        \`);
+        `);
 
         // ----------------------------------------------------
         // DATE CONVERSION
@@ -1358,7 +1291,7 @@ app.post('/api/sparepart/bulk', async (req, res) => {
 
             for (let i = 0; i < values.length; i += 500) {
 
-                await pool.query(\`
+                await pool.query(`
                     INSERT IGNORE INTO spareparts
                     (
                         id,
@@ -1381,7 +1314,7 @@ app.post('/api/sparepart/bulk', async (req, res) => {
                         keterangan
                     )
                     VALUES ?
-                \`, [
+                `, [
                     values.slice(i, i + 500)
                 ]);
             }
@@ -1563,7 +1496,7 @@ app.post('/api/transactions', async (req, res) => {
 
             if (values.length > 0) {
 
-                await pool.query(\`
+                await pool.query(`
                     INSERT IGNORE INTO transactions
                     (
                         id,
@@ -1591,7 +1524,7 @@ app.post('/api/transactions', async (req, res) => {
                         tanggal_lunas
                     )
                     VALUES ?
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -1643,7 +1576,7 @@ app.post('/api/transactions', async (req, res) => {
 
             if (values.length > 0) {
 
-                await pool.query(\`
+                await pool.query(`
                     INSERT IGNORE INTO tax_records
                     (
                         tax_id,
@@ -1664,7 +1597,7 @@ app.post('/api/transactions', async (req, res) => {
                         nilai_pajak
                     )
                     VALUES ?
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -1855,7 +1788,7 @@ app.post('/api/transaction/retur', async (req, res) => {
         // SIMPAN RETUR RECORD
         // ========================================================
         await conn.query(
-            \`
+            `
             INSERT INTO retur_records
             (
                 id,
@@ -1874,7 +1807,7 @@ app.post('/api/transaction/retur', async (req, res) => {
                 pelanggan = VALUES(pelanggan),
                 items = VALUES(items),
                 exchange_items = VALUES(exchange_items)
-            \`,
+            `,
             [
                 String(returId),
                 String(parentInvoice),
@@ -1951,7 +1884,7 @@ app.post('/api/transaction/retur', async (req, res) => {
 
             if (values.length > 0) {
                 await conn.query(
-                    \`
+                    `
                     INSERT IGNORE INTO transactions
                     (
                         id,
@@ -1979,7 +1912,7 @@ app.post('/api/transaction/retur', async (req, res) => {
                         tanggal_lunas
                     )
                     VALUES ?
-                    \`,
+                    `,
                     [values]
                 );
             }
@@ -2050,7 +1983,7 @@ app.post('/api/transaction/retur', async (req, res) => {
 
             if (values.length > 0) {
                 await conn.query(
-                    \`
+                    `
                     INSERT IGNORE INTO tax_records
                     (
                         tax_id,
@@ -2071,7 +2004,7 @@ app.post('/api/transaction/retur', async (req, res) => {
                         nilai_pajak
                     )
                     VALUES ?
-                    \`,
+                    `,
                     [values]
                 );
             }
@@ -2081,7 +2014,7 @@ app.post('/api/transaction/retur', async (req, res) => {
         // VERIFIKASI RETUR
         // ========================================================
         const [verify] = await conn.query(
-            \`
+            `
             SELECT
                 id,
                 parent_invoice,
@@ -2089,7 +2022,7 @@ app.post('/api/transaction/retur', async (req, res) => {
             FROM retur_records
             WHERE id = ?
             LIMIT 1
-            \`,
+            `,
             [String(returId)]
         );
 
@@ -2177,42 +2110,42 @@ app.post('/api/transaction/delete-invoice', async (req, res) => {
     try {
 
         const [returs] =
-            await pool.query(\`
+            await pool.query(`
                 SELECT id
                 FROM retur_records
                 WHERE parent_invoice = ?
-            \`, [String(trxId)]);
+            `, [String(trxId)]);
 
-        await pool.query(\`
+        await pool.query(`
             DELETE FROM transactions
             WHERE nomor_transaksi = ?
-        \`, [String(trxId)]);
+        `, [String(trxId)]);
 
-        await pool.query(\`
+        await pool.query(`
             DELETE FROM tax_records
             WHERE nomor_transaksi = ?
-        \`, [String(trxId)]);
+        `, [String(trxId)]);
 
         if (returs.length > 0) {
 
             for (const r of returs) {
 
-                await pool.query(\`
+                await pool.query(`
                     DELETE FROM transactions
                     WHERE nomor_transaksi = ?
-                \`, [String(r.id)]);
+                `, [String(r.id)]);
 
-                await pool.query(\`
+                await pool.query(`
                     DELETE FROM tax_records
                     WHERE nomor_transaksi = ?
-                \`, [String(r.id)]);
+                `, [String(r.id)]);
             }
         }
 
-        await pool.query(\`
+        await pool.query(`
             DELETE FROM retur_records
             WHERE parent_invoice = ?
-        \`, [String(trxId)]);
+        `, [String(trxId)]);
 
         invalidateDataCache();
 
@@ -2259,20 +2192,20 @@ app.post('/api/transaction/delete-retur', async (req, res) => {
 
     try {
 
-        await pool.query(\`
+        await pool.query(`
             DELETE FROM transactions
             WHERE nomor_transaksi = ?
-        \`, [String(returId)]);
+        `, [String(returId)]);
 
-        await pool.query(\`
+        await pool.query(`
             DELETE FROM tax_records
             WHERE nomor_transaksi = ?
-        \`, [String(returId)]);
+        `, [String(returId)]);
 
-        await pool.query(\`
+        await pool.query(`
             DELETE FROM retur_records
             WHERE id = ?
-        \`, [String(returId)]);
+        `, [String(returId)]);
 
         invalidateDataCache();
 
@@ -2315,15 +2248,15 @@ app.post('/api/transaction/delete', async (req, res) => {
 
     try {
 
-        await pool.query(\`
+        await pool.query(`
             DELETE FROM transactions
             WHERE id = ?
-        \`, [cleanId]);
+        `, [cleanId]);
 
-        await pool.query(\`
+        await pool.query(`
             DELETE FROM tax_records
             WHERE trx_id = ?
-        \`, [cleanId]);
+        `, [cleanId]);
 
         invalidateDataCache();
 
@@ -2388,14 +2321,14 @@ app.put('/api/transaction/edit-struk', async (req, res) => {
         // ----------------------------------------------------
 
         const [trxRows] =
-            await conn.query(\`
+            await conn.query(`
                 SELECT
                     id,
                     nomor_transaksi
                 FROM transactions
                 WHERE nomor_transaksi = ?
                 ORDER BY id ASC
-            \`, [
+            `, [
                 String(invoice)
             ]);
 
@@ -2445,11 +2378,11 @@ app.put('/api/transaction/edit-struk', async (req, res) => {
             // Update transaksi
             // ------------------------------------------------
 
-            await conn.query(\`
+            await conn.query(`
                 UPDATE transactions
                 SET harga_satuan = ?
                 WHERE id = ?
-            \`, [
+            `, [
                 newHarga,
                 dbId
             ]);
@@ -2459,14 +2392,14 @@ app.put('/api/transaction/edit-struk', async (req, res) => {
             // ------------------------------------------------
 
             const [taxRows] =
-                await conn.query(\`
+                await conn.query(`
                     SELECT
                         tax_id,
                         jumlah,
                         persentase_pajak
                     FROM tax_records
                     WHERE trx_id = ?
-                \`, [
+                `, [
                     dbId
                 ]);
 
@@ -2493,14 +2426,14 @@ app.put('/api/transaction/edit-struk', async (req, res) => {
                         persen
                     ) / 100;
 
-                await conn.query(\`
+                await conn.query(`
                     UPDATE tax_records
                     SET
                         harga_satuan = ?,
                         subtotal = ?,
                         nilai_pajak = ?
                     WHERE tax_id = ?
-                \`, [
+                `, [
                     newHarga,
                     newSubtotal,
                     newNilaiPajak,
@@ -2526,11 +2459,11 @@ app.put('/api/transaction/edit-struk', async (req, res) => {
 
             if (firstId !== null) {
 
-                await conn.query(\`
+                await conn.query(`
                     UPDATE transactions
                     SET diskon = ?
                     WHERE id = ?
-                \`, [
+                `, [
                     safeNumber(diskon),
                     firstId
                 ]);
@@ -2607,11 +2540,11 @@ app.put('/api/transactions/payoff', async (req, res) => {
         await conn.beginTransaction();
 
         const [trxRows] =
-            await conn.query(\`
+            await conn.query(`
                 SELECT *
                 FROM transactions
                 WHERE nomor_transaksi = ?
-            \`, [
+            `, [
                 String(trxId)
             ]);
 
@@ -2662,26 +2595,26 @@ app.put('/api/transactions/payoff', async (req, res) => {
                 trxRows[0].diskon
             );
 
-        await conn.query(\`
+        await conn.query(`
             UPDATE transactions
             SET
                 status_bayar = 'Lunas',
                 keterangan = 'Bon (Lunas)',
                 tanggal_lunas = NOW()
             WHERE nomor_transaksi = ?
-        \`, [
+        `, [
             String(trxId)
         ]);
 
-        await conn.query(\`
+        await conn.query(`
             UPDATE tax_records
             SET status_bayar = 'Lunas'
             WHERE nomor_transaksi = ?
-        \`, [
+        `, [
             String(trxId)
         ]);
 
-        await conn.query(\`
+        await conn.query(`
             INSERT INTO cash_inflows
             (
                 id,
@@ -2691,7 +2624,7 @@ app.put('/api/transactions/payoff', async (req, res) => {
                 kasir
             )
             VALUES (?, ?, ?, ?, ?)
-        \`, [
+        `, [
             Date.now(),
             new Date(),
             total,
@@ -2760,7 +2693,7 @@ app.put('/api/transaction/:id', async (req, res) => {
 
     try {
 
-        await pool.query(\`
+        await pool.query(`
             UPDATE transactions
             SET
                 sparepart_id = ?,
@@ -2772,7 +2705,7 @@ app.put('/api/transaction/:id', async (req, res) => {
                 tujuan = ?,
                 keterangan = ?
             WHERE id = ?
-        \`, [
+        `, [
 
             safeInteger(
                 updatedData.sparepart_id
@@ -2851,10 +2784,10 @@ app.post('/api/cash-expense/delete', async (req, res) => {
 
     try {
 
-        await pool.query(\`
+        await pool.query(`
             DELETE FROM cash_expenses
             WHERE id = ?
-        \`, [id]);
+        `, [id]);
 
         invalidateDataCache();
 
@@ -2899,10 +2832,10 @@ app.post('/api/cash-inflow/delete', async (req, res) => {
 
     try {
 
-        await pool.query(\`
+        await pool.query(`
             DELETE FROM cash_inflows
             WHERE id = ?
-        \`, [id]);
+        `, [id]);
 
         invalidateDataCache();
 
@@ -3059,7 +2992,7 @@ app.put('/api/settings', async (req, res) => {
 
     try {
 
-        await pool.query(\`
+        await pool.query(`
             UPDATE app_settings
             SET
                 kas_awal = ?,
@@ -3070,7 +3003,7 @@ app.put('/api/settings', async (req, res) => {
                 shift_sessions = ?,
                 audit_trail = ?
             WHERE id = 1
-        \`, [
+        `, [
 
             safeNumber(
                 kasAwal
@@ -3114,10 +3047,10 @@ app.put('/api/settings', async (req, res) => {
         // Sinkronisasi master_pajak
         // ----------------------------------------------------
         if (Array.isArray(masterPajak)) {
-            await pool.query(\`DELETE FROM master_pajak\`);
+            await pool.query(`DELETE FROM master_pajak`);
             for (let i = 0; i < masterPajak.length; i++) {
                 const p = masterPajak[i] || {};
-                await pool.query(\`INSERT INTO master_pajak (id, jenis, persentase, kode_pajak, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)\`, [
+                await pool.query(`INSERT INTO master_pajak (id, jenis, persentase, kode_pajak, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)`, [
                     safeInteger(p.id, i + 1), safeString(p.jenis || p.nama), safeNumber(p.persentase), safeString(p.kode_pajak), p.aktif === false ? 0 : 1, safeString(p.keterangan)
                 ]);
             }
@@ -3127,10 +3060,10 @@ app.put('/api/settings', async (req, res) => {
         // Sinkronisasi master_bank
         // ----------------------------------------------------
         if (Array.isArray(masterBank)) {
-            await pool.query(\`DELETE FROM master_bank\`);
+            await pool.query(`DELETE FROM master_bank`);
             for (let i = 0; i < masterBank.length; i++) {
                 const b = masterBank[i] || {};
-                await pool.query(\`INSERT INTO master_bank (id, nama, rekening, atas_nama, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)\`, [
+                await pool.query(`INSERT INTO master_bank (id, nama, rekening, atas_nama, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)`, [
                     safeInteger(b.id, i + 1), safeString(b.nama || b.bank), safeString(b.rekening || b.nomor_rekening), safeString(b.atas_nama || b.nama_rekening), b.aktif === false ? 0 : 1, safeString(b.keterangan)
                 ]);
             }
@@ -3140,17 +3073,17 @@ app.put('/api/settings', async (req, res) => {
         // Sinkronisasi users - jangan pernah menghilangkan admin
         // ----------------------------------------------------
         if (Array.isArray(users)) {
-            await pool.query(\`DELETE FROM users\`);
+            await pool.query(`DELETE FROM users`);
             for (const u of users) {
                 if (!u || !u.username) continue;
-                await pool.query(\`INSERT INTO users (username, password, role, name, aktif, data) VALUES (?, ?, ?, ?, ?, ?)\`, [
+                await pool.query(`INSERT INTO users (username, password, role, name, aktif, data) VALUES (?, ?, ?, ?, ?, ?)`, [
                     safeString(u.username), safeString(u.password), safeString(u.role, 'Kasir'), safeString(u.name), u.aktif === false ? 0 : 1, JSON.stringify(u)
                 ]);
             }
             // Failsafe login admin bila frontend pernah mengirim users kosong/tidak lengkap.
-            const [adminRows] = await pool.query(\`SELECT username FROM users WHERE username = 'admin' LIMIT 1\`);
+            const [adminRows] = await pool.query(`SELECT username FROM users WHERE username = 'admin' LIMIT 1`);
             if (adminRows.length === 0) {
-                await pool.query(\`INSERT INTO users (username, password, role, name, aktif, data) VALUES ('admin','admin123','Admin','Administrator',1,?)\`, [JSON.stringify({username:'admin',password:'admin123',role:'Admin',name:'Administrator'})]);
+                await pool.query(`INSERT INTO users (username, password, role, name, aktif, data) VALUES ('admin','admin123','Admin','Administrator',1,?)`, [JSON.stringify({username:'admin',password:'admin123',role:'Admin',name:'Administrator'})]);
             }
         }
 
@@ -3158,22 +3091,22 @@ app.put('/api/settings', async (req, res) => {
         // Sinkronisasi shift_sessions dan audit_trail
         // ----------------------------------------------------
         if (Array.isArray(shiftSessions)) {
-            await pool.query(\`DELETE FROM shift_sessions\`);
+            await pool.query(`DELETE FROM shift_sessions`);
             for (let i = 0; i < shiftSessions.length; i++) {
                 const x = shiftSessions[i] || {};
                 const id = safeString(x.id || x.sessionId || ('SHIFT-' + i + '-' + Date.now()));
-                await pool.query(\`INSERT INTO shift_sessions (id, username, name, shift, start_time, end_time, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)\`, [
+                await pool.query(`INSERT INTO shift_sessions (id, username, name, shift, start_time, end_time, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
                     id, safeString(x.username || x.user), safeString(x.name), safeString(x.shift), x.start_time ? safeDate(x.start_time) : null, x.end_time ? safeDate(x.end_time) : null, safeString(x.status), JSON.stringify(x)
                 ]);
             }
         }
 
         if (Array.isArray(auditTrail)) {
-            await pool.query(\`DELETE FROM audit_trail\`);
+            await pool.query(`DELETE FROM audit_trail`);
             for (let i = 0; i < auditTrail.length && i < 1000; i++) {
                 const x = auditTrail[i] || {};
                 const id = safeString(x.id || ('AUDIT-' + i + '-' + Date.now()));
-                await pool.query(\`INSERT INTO audit_trail (id, timestamp, username, name, action, details, data) VALUES (?, ?, ?, ?, ?, ?, ?)\`, [
+                await pool.query(`INSERT INTO audit_trail (id, timestamp, username, name, action, details, data) VALUES (?, ?, ?, ?, ?, ?, ?)`, [
                     id, safeNumber(x.timestamp), safeString(x.username || x.user), safeString(x.name), safeString(x.action), safeString(x.details || x.description), JSON.stringify(x)
                 ]);
             }
@@ -3204,7 +3137,7 @@ app.put('/api/settings', async (req, res) => {
 
             if (values.length > 0) {
 
-                await pool.query(\`
+                await pool.query(`
                     INSERT INTO cash_expenses
                     (
                         id,
@@ -3219,7 +3152,7 @@ app.put('/api/settings', async (req, res) => {
                         jumlah = VALUES(jumlah),
                         keterangan = VALUES(keterangan),
                         kasir = VALUES(kasir)
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -3248,7 +3181,7 @@ app.put('/api/settings', async (req, res) => {
 
             if (values.length > 0) {
 
-                await pool.query(\`
+                await pool.query(`
                     INSERT INTO cash_inflows
                     (
                         id,
@@ -3263,7 +3196,7 @@ app.put('/api/settings', async (req, res) => {
                         jumlah = VALUES(jumlah),
                         keterangan = VALUES(keterangan),
                         kasir = VALUES(kasir)
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -3384,7 +3317,7 @@ app.post('/api/restore', async (req, res) => {
                 i += 500
             ) {
 
-                await conn.query(\`
+                await conn.query(`
                     INSERT INTO spareparts
                     (
                         id,
@@ -3407,7 +3340,7 @@ app.post('/api/restore', async (req, res) => {
                         keterangan
                     )
                     VALUES ?
-                \`, [
+                `, [
                     values.slice(
                         i,
                         i + 500
@@ -3530,7 +3463,7 @@ app.post('/api/restore', async (req, res) => {
                 i += 500
             ) {
 
-                await conn.query(\`
+                await conn.query(`
                     INSERT INTO transactions
                     (
                         id,
@@ -3558,7 +3491,7 @@ app.post('/api/restore', async (req, res) => {
                         tanggal_lunas
                     )
                     VALUES ?
-                \`, [
+                `, [
                     values.slice(
                         i,
                         i + 500
@@ -3592,7 +3525,7 @@ app.post('/api/restore', async (req, res) => {
 
             if (values.length > 0) {
 
-                await conn.query(\`
+                await conn.query(`
                     INSERT INTO partners
                     (
                         id,
@@ -3602,7 +3535,7 @@ app.post('/api/restore', async (req, res) => {
                         alamat
                     )
                     VALUES ?
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -3631,7 +3564,7 @@ app.post('/api/restore', async (req, res) => {
 
             if (values.length > 0) {
 
-                await conn.query(\`
+                await conn.query(`
                     INSERT INTO cash_expenses
                     (
                         id,
@@ -3641,7 +3574,7 @@ app.post('/api/restore', async (req, res) => {
                         kasir
                     )
                     VALUES ?
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -3670,7 +3603,7 @@ app.post('/api/restore', async (req, res) => {
 
             if (values.length > 0) {
 
-                await conn.query(\`
+                await conn.query(`
                     INSERT INTO cash_inflows
                     (
                         id,
@@ -3680,7 +3613,7 @@ app.post('/api/restore', async (req, res) => {
                         kasir
                     )
                     VALUES ?
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -3770,7 +3703,7 @@ app.post('/api/restore', async (req, res) => {
 
             if (values.length > 0) {
 
-                await conn.query(\`
+                await conn.query(`
                     INSERT INTO tax_records
                     (
                         tax_id,
@@ -3791,7 +3724,7 @@ app.post('/api/restore', async (req, res) => {
                         nilai_pajak
                     )
                     VALUES ?
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -3850,7 +3783,7 @@ app.post('/api/restore', async (req, res) => {
 
             if (values.length > 0) {
 
-                await conn.query(\`
+                await conn.query(`
                     INSERT INTO retur_records
                     (
                         id,
@@ -3862,7 +3795,7 @@ app.post('/api/restore', async (req, res) => {
                         exchange_items
                     )
                     VALUES ?
-                \`, [values]);
+                `, [values]);
             }
         }
 
@@ -3870,7 +3803,7 @@ app.post('/api/restore', async (req, res) => {
         // SETTINGS
         // ----------------------------------------------------
 
-        await conn.query(\`
+        await conn.query(`
             UPDATE app_settings
             SET
                 kas_awal = ?,
@@ -3881,7 +3814,7 @@ app.post('/api/restore', async (req, res) => {
                 shift_sessions = ?,
                 audit_trail = ?
             WHERE id = 1
-        \`, [
+        `, [
 
             safeNumber(
                 data.kasAwal
@@ -3926,41 +3859,41 @@ app.post('/api/restore', async (req, res) => {
         ]);
 
         // Sinkronisasi tabel master tambahan saat restore.
-        await conn.query(\`DELETE FROM master_pajak\`);
+        await conn.query(`DELETE FROM master_pajak`);
         if (Array.isArray(data.masterPajak)) {
             for (let i = 0; i < data.masterPajak.length; i++) {
                 const x = data.masterPajak[i] || {};
-                await conn.query(\`INSERT INTO master_pajak (id, jenis, persentase, kode_pajak, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)\`, [safeInteger(x.id, i+1), safeString(x.jenis || x.nama), safeNumber(x.persentase), safeString(x.kode_pajak), x.aktif === false ? 0 : 1, safeString(x.keterangan)]);
+                await conn.query(`INSERT INTO master_pajak (id, jenis, persentase, kode_pajak, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)`, [safeInteger(x.id, i+1), safeString(x.jenis || x.nama), safeNumber(x.persentase), safeString(x.kode_pajak), x.aktif === false ? 0 : 1, safeString(x.keterangan)]);
             }
         }
-        await conn.query(\`DELETE FROM master_bank\`);
+        await conn.query(`DELETE FROM master_bank`);
         if (Array.isArray(data.masterBank)) {
             for (let i = 0; i < data.masterBank.length; i++) {
                 const x = data.masterBank[i] || {};
-                await conn.query(\`INSERT INTO master_bank (id, nama, rekening, atas_nama, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)\`, [safeInteger(x.id, i+1), safeString(x.nama || x.bank), safeString(x.rekening || x.nomor_rekening), safeString(x.atas_nama || x.nama_rekening), x.aktif === false ? 0 : 1, safeString(x.keterangan)]);
+                await conn.query(`INSERT INTO master_bank (id, nama, rekening, atas_nama, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)`, [safeInteger(x.id, i+1), safeString(x.nama || x.bank), safeString(x.rekening || x.nomor_rekening), safeString(x.atas_nama || x.nama_rekening), x.aktif === false ? 0 : 1, safeString(x.keterangan)]);
             }
         }
-        await conn.query(\`DELETE FROM users\`);
+        await conn.query(`DELETE FROM users`);
         if (Array.isArray(data.users)) {
             for (const x of data.users) {
                 if (!x || !x.username) continue;
-                await conn.query(\`INSERT INTO users (username, password, role, name, aktif, data) VALUES (?, ?, ?, ?, ?, ?)\`, [safeString(x.username), safeString(x.password), safeString(x.role, 'Kasir'), safeString(x.name), x.aktif === false ? 0 : 1, JSON.stringify(x)]);
+                await conn.query(`INSERT INTO users (username, password, role, name, aktif, data) VALUES (?, ?, ?, ?, ?, ?)`, [safeString(x.username), safeString(x.password), safeString(x.role, 'Kasir'), safeString(x.name), x.aktif === false ? 0 : 1, JSON.stringify(x)]);
             }
         }
-        const [adminCheck] = await conn.query(\`SELECT username FROM users WHERE username='admin' LIMIT 1\`);
-        if (adminCheck.length === 0) await conn.query(\`INSERT INTO users (username,password,role,name,aktif,data) VALUES ('admin','admin123','Admin','Administrator',1,?)\`, [JSON.stringify({username:'admin',password:'admin123',role:'Admin',name:'Administrator'})]);
-        await conn.query(\`DELETE FROM shift_sessions\`);
+        const [adminCheck] = await conn.query(`SELECT username FROM users WHERE username='admin' LIMIT 1`);
+        if (adminCheck.length === 0) await conn.query(`INSERT INTO users (username,password,role,name,aktif,data) VALUES ('admin','admin123','Admin','Administrator',1,?)`, [JSON.stringify({username:'admin',password:'admin123',role:'Admin',name:'Administrator'})]);
+        await conn.query(`DELETE FROM shift_sessions`);
         if (Array.isArray(data.shiftSessions)) {
             for (let i = 0; i < data.shiftSessions.length; i++) {
                 const x=data.shiftSessions[i]||{}; const id=safeString(x.id||x.sessionId||('SHIFT-'+i+'-'+Date.now()));
-                await conn.query(\`INSERT INTO shift_sessions (id,username,name,shift,start_time,end_time,status,data) VALUES (?,?,?,?,?,?,?,?)\`, [id,safeString(x.username||x.user),safeString(x.name),safeString(x.shift),x.start_time?safeDate(x.start_time):null,x.end_time?safeDate(x.end_time):null,safeString(x.status),JSON.stringify(x)]);
+                await conn.query(`INSERT INTO shift_sessions (id,username,name,shift,start_time,end_time,status,data) VALUES (?,?,?,?,?,?,?,?)`, [id,safeString(x.username||x.user),safeString(x.name),safeString(x.shift),x.start_time?safeDate(x.start_time):null,x.end_time?safeDate(x.end_time):null,safeString(x.status),JSON.stringify(x)]);
             }
         }
-        await conn.query(\`DELETE FROM audit_trail\`);
+        await conn.query(`DELETE FROM audit_trail`);
         if (Array.isArray(data.auditTrail)) {
             for (let i=0;i<data.auditTrail.length && i<1000;i++) {
                 const x=data.auditTrail[i]||{}; const id=safeString(x.id||('AUDIT-'+i+'-'+Date.now()));
-                await conn.query(\`INSERT INTO audit_trail (id,timestamp,username,name,action,details,data) VALUES (?,?,?,?,?,?,?)\`, [id,safeNumber(x.timestamp),safeString(x.username||x.user),safeString(x.name),safeString(x.action),safeString(x.details||x.description),JSON.stringify(x)]);
+                await conn.query(`INSERT INTO audit_trail (id,timestamp,username,name,action,details,data) VALUES (?,?,?,?,?,?,?)`, [id,safeNumber(x.timestamp),safeString(x.username||x.user),safeString(x.name),safeString(x.action),safeString(x.details||x.description),JSON.stringify(x)]);
             }
         }
 
@@ -4018,7 +3951,7 @@ const PORT =
 app.listen(
     PORT,
     async () => {
-        console.log(\`Server berjalan di port \${PORT}\`);
+        console.log(`Server berjalan di port ${PORT}`);
         // Jalankan inisialisasi otomatis saat deploy/startup.
         // Endpoint /api/init tetap tersedia dan aman dipanggil ulang.
         try {
@@ -4037,89 +3970,89 @@ async function initializeDatabase() {
     // ========================================================
     // Tabel inti aplikasi lama - TIDAK menghapus data lama
     // ========================================================
-    await pool.query(\`CREATE TABLE IF NOT EXISTS spareparts (
+    await pool.query(`CREATE TABLE IF NOT EXISTS spareparts (
         id BIGINT PRIMARY KEY, kode VARCHAR(50), part_number VARCHAR(255), part_numbers_alt TEXT,
         nama VARCHAR(500), kategori VARCHAR(100), merek VARCHAR(100), satuan VARCHAR(50),
         stok_min INT DEFAULT 0, stok_awal INT DEFAULT 0, harga_beli BIGINT DEFAULT 0, harga_jual BIGINT DEFAULT 0,
         satuan_alt VARCHAR(50), isi_satuan_alt INT DEFAULT 0, harga_jual_alt BIGINT DEFAULT 0,
         pajak_status VARCHAR(20), kode_pajak VARCHAR(50), keterangan TEXT
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
-    await pool.query(\`CREATE TABLE IF NOT EXISTS transactions (
+    await pool.query(`CREATE TABLE IF NOT EXISTS transactions (
         id BIGINT PRIMARY KEY, nomor_transaksi VARCHAR(50), tanggal DATETIME, sparepart_id BIGINT,
         custom_item VARCHAR(500), part_numbers_alt TEXT, merek VARCHAR(100), jenis VARCHAR(20),
         jumlah INT, satuan VARCHAR(50), jumlah_dasar INT, harga_satuan BIGINT, tujuan VARCHAR(255),
         keterangan TEXT, source VARCHAR(50), kasir VARCHAR(100), status_bayar VARCHAR(20), metode_bayar VARCHAR(50),
         bayar_tunai BIGINT DEFAULT 0, transfer_amount BIGINT DEFAULT 0, kembalian_diberikan BIGINT DEFAULT 0,
         diskon BIGINT DEFAULT 0, tanggal_lunas DATETIME NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
-    await pool.query(\`CREATE TABLE IF NOT EXISTS partners (
+    await pool.query(`CREATE TABLE IF NOT EXISTS partners (
         id BIGINT PRIMARY KEY, nama VARCHAR(255), tipe VARCHAR(50), telp VARCHAR(50), alamat TEXT
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
-    await pool.query(\`CREATE TABLE IF NOT EXISTS cash_expenses (
+    await pool.query(`CREATE TABLE IF NOT EXISTS cash_expenses (
         id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
-    await pool.query(\`CREATE TABLE IF NOT EXISTS cash_inflows (
+    await pool.query(`CREATE TABLE IF NOT EXISTS cash_inflows (
         id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
-    await pool.query(\`CREATE TABLE IF NOT EXISTS tax_records (
+    await pool.query(`CREATE TABLE IF NOT EXISTS tax_records (
         tax_id VARCHAR(100) PRIMARY KEY, trx_id BIGINT, tanggal DATETIME, nomor_transaksi VARCHAR(50),
         part_number VARCHAR(255), nama VARCHAR(500), kategori VARCHAR(100), merek VARCHAR(100),
         status_bayar VARCHAR(20), pelanggan VARCHAR(255), jumlah INT, satuan VARCHAR(50),
         harga_satuan BIGINT, subtotal BIGINT, persentase_pajak DECIMAL(5,2), nilai_pajak BIGINT
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
-    await pool.query(\`CREATE TABLE IF NOT EXISTS retur_records (
+    await pool.query(`CREATE TABLE IF NOT EXISTS retur_records (
         id VARCHAR(50) PRIMARY KEY, parent_invoice VARCHAR(50), tanggal DATETIME, kasir VARCHAR(100),
         pelanggan VARCHAR(255), items JSON, exchange_items JSON
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
-    try { await pool.query(\`ALTER TABLE retur_records ADD COLUMN exchange_items JSON\`); } catch(e) {}
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    try { await pool.query(`ALTER TABLE retur_records ADD COLUMN exchange_items JSON`); } catch(e) {}
 
     // ========================================================
     // Settings + master database baru
     // ========================================================
-    await pool.query(\`CREATE TABLE IF NOT EXISTS app_settings (
+    await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
         id INT PRIMARY KEY DEFAULT 1, kas_awal BIGINT DEFAULT 0, active_shift_start BIGINT,
         master_pajak JSON, users JSON, shift_sessions JSON, master_bank JSON NULL, audit_trail JSON NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
-    try { await pool.query(\`ALTER TABLE app_settings ADD COLUMN shift_sessions JSON\`); } catch(e) {}
-    try { await pool.query(\`ALTER TABLE app_settings ADD COLUMN master_bank JSON NULL\`); } catch(e) {}
-    try { await pool.query(\`ALTER TABLE app_settings ADD COLUMN audit_trail JSON NULL\`); } catch(e) {}
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    try { await pool.query(`ALTER TABLE app_settings ADD COLUMN shift_sessions JSON`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE app_settings ADD COLUMN master_bank JSON NULL`); } catch(e) {}
+    try { await pool.query(`ALTER TABLE app_settings ADD COLUMN audit_trail JSON NULL`); } catch(e) {}
 
-    await pool.query(\`CREATE TABLE IF NOT EXISTS master_pajak (
+    await pool.query(`CREATE TABLE IF NOT EXISTS master_pajak (
         id BIGINT PRIMARY KEY, jenis VARCHAR(100) NOT NULL, persentase DECIMAL(5,2) NOT NULL DEFAULT 0,
         kode_pajak VARCHAR(50) DEFAULT '', aktif TINYINT(1) DEFAULT 1, keterangan VARCHAR(255) DEFAULT '',
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
-    await pool.query(\`CREATE TABLE IF NOT EXISTS master_bank (
+    await pool.query(`CREATE TABLE IF NOT EXISTS master_bank (
         id BIGINT PRIMARY KEY, nama VARCHAR(100) NOT NULL, rekening VARCHAR(100) DEFAULT '',
         atas_nama VARCHAR(255) DEFAULT '', aktif TINYINT(1) DEFAULT 1, keterangan VARCHAR(255) DEFAULT '',
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
-    await pool.query(\`CREATE TABLE IF NOT EXISTS users (
+    await pool.query(`CREATE TABLE IF NOT EXISTS users (
         username VARCHAR(100) PRIMARY KEY, password VARCHAR(255) NOT NULL, role VARCHAR(50) NOT NULL,
         name VARCHAR(255) DEFAULT '', aktif TINYINT(1) DEFAULT 1, data JSON NULL,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
-    await pool.query(\`CREATE TABLE IF NOT EXISTS shift_sessions (
+    await pool.query(`CREATE TABLE IF NOT EXISTS shift_sessions (
         id VARCHAR(100) PRIMARY KEY, username VARCHAR(100) DEFAULT '', name VARCHAR(255) DEFAULT '',
         shift VARCHAR(100) DEFAULT '', start_time DATETIME NULL, end_time DATETIME NULL,
         status VARCHAR(50) DEFAULT '', data JSON NULL,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
-    await pool.query(\`CREATE TABLE IF NOT EXISTS audit_trail (
+    await pool.query(`CREATE TABLE IF NOT EXISTS audit_trail (
         id VARCHAR(100) PRIMARY KEY, timestamp BIGINT DEFAULT 0, username VARCHAR(100) DEFAULT '',
         name VARCHAR(255) DEFAULT '', action VARCHAR(255) DEFAULT '', details TEXT, data JSON NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
     // ========================================================
     // Pastikan row settings utama tersedia
@@ -4136,11 +4069,11 @@ async function initializeDatabase() {
         {username:'siang',password:'siang123',role:'Kasir',name:'Kasir Siang'}
     ];
 
-    const [settings] = await pool.query(\`SELECT * FROM app_settings WHERE id=1 LIMIT 1\`);
+    const [settings] = await pool.query(`SELECT * FROM app_settings WHERE id=1 LIMIT 1`);
     if (settings.length === 0) {
-        await pool.query(\`INSERT INTO app_settings
+        await pool.query(`INSERT INTO app_settings
             (id,kas_awal,active_shift_start,master_pajak,users,shift_sessions,master_bank,audit_trail)
-            VALUES (?,?,?,?,?,?,?,?)\`, [
+            VALUES (?,?,?,?,?,?,?,?)`, [
                 1,0,Date.now(),JSON.stringify(defaultPajak),JSON.stringify(defaultUsers),JSON.stringify([]),JSON.stringify([]),JSON.stringify([])
             ]);
     }
@@ -4148,11 +4081,11 @@ async function initializeDatabase() {
     // ========================================================
     // Master pajak: jangan menimpa data yang sudah ada
     // ========================================================
-    const [pajakCount] = await pool.query(\`SELECT COUNT(*) AS n FROM master_pajak\`);
+    const [pajakCount] = await pool.query(`SELECT COUNT(*) AS n FROM master_pajak`);
     if (Number(pajakCount[0].n) === 0) {
         for (let i=0;i<defaultPajak.length;i++) {
             const x=defaultPajak[i];
-            await pool.query(\`INSERT INTO master_pajak (id,jenis,persentase,aktif) VALUES (?,?,?,1)\`, [i+1,x.jenis,x.persentase]);
+            await pool.query(`INSERT INTO master_pajak (id,jenis,persentase,aktif) VALUES (?,?,?,1)`, [i+1,x.jenis,x.persentase]);
         }
     }
 
@@ -4160,42 +4093,22 @@ async function initializeDatabase() {
     // User: jangan menghapus user lama; pastikan admin selalu ada
     // ========================================================
     for (const u of defaultUsers) {
-        await pool.query(\`INSERT IGNORE INTO users (username,password,role,name,aktif,data) VALUES (?,?,?,?,1,?)\`,
+        await pool.query(`INSERT IGNORE INTO users (username,password,role,name,aktif,data) VALUES (?,?,?,?,1,?)`,
             [u.username,u.password,u.role,u.name,JSON.stringify(u)]);
     }
 
     // Sinkronisasi settings lama jika JSON-nya kosong.
-    const [freshSettings] = await pool.query(\`SELECT master_pajak,users FROM app_settings WHERE id=1 LIMIT 1\`);
+    const [freshSettings] = await pool.query(`SELECT master_pajak,users FROM app_settings WHERE id=1 LIMIT 1`);
     if (freshSettings.length) {
         const mp = safeJSON(freshSettings[0].master_pajak, []);
         if (!Array.isArray(mp) || mp.length === 0) {
-            const [rows] = await pool.query(\`SELECT jenis,persentase,kode_pajak FROM master_pajak WHERE aktif=1 ORDER BY id\`);
-            await pool.query(\`UPDATE app_settings SET master_pajak=? WHERE id=1\`, [JSON.stringify(rows.map(x=>({jenis:x.jenis,persentase:Number(x.persentase),kode_pajak:x.kode_pajak||''})))]);
+            const [rows] = await pool.query(`SELECT jenis,persentase,kode_pajak FROM master_pajak WHERE aktif=1 ORDER BY id`);
+            await pool.query(`UPDATE app_settings SET master_pajak=? WHERE id=1`, [JSON.stringify(rows.map(x=>({jenis:x.jenis,persentase:Number(x.persentase),kode_pajak:x.kode_pajak||''})))]);
         }
         const us = safeJSON(freshSettings[0].users, []);
         if (!Array.isArray(us) || us.length === 0) {
-            const [rows] = await pool.query(\`SELECT username,password,role,name FROM users WHERE aktif=1 ORDER BY username\`);
-            await pool.query(\`UPDATE app_settings SET users=? WHERE id=1\`, [JSON.stringify(rows)]);
+            const [rows] = await pool.query(`SELECT username,password,role,name FROM users WHERE aktif=1 ORDER BY username`);
+            await pool.query(`UPDATE app_settings SET users=? WHERE id=1`, [JSON.stringify(rows)]);
         }
     }
 }
-`;
-
-document.getElementById("code").value = code;
-
-function copyCode() {
-    const el = document.getElementById("code");
-    el.focus();
-    el.select();
-    el.setSelectionRange(0, el.value.length);
-
-    navigator.clipboard.writeText(el.value).then(() => {
-        alert("Kode server.js berhasil disalin.");
-    }).catch(() => {
-        document.execCommand("copy");
-        alert("Kode server.js berhasil disalin.");
-    });
-}
-</script>
-</body>
-</html>
