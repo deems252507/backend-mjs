@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -587,7 +588,7 @@ app.get('/api/data', async (req, res) => {
 
         const [masterPajakRows] = await connection.query(`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak WHERE aktif = 1 ORDER BY id`);
         const [masterBankRows] = await connection.query(`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank WHERE aktif = 1 ORDER BY id`);
-        const [userRows] = await connection.query(`SELECT username, password, role, name, aktif, data FROM users WHERE aktif = 1 ORDER BY username`);
+        const [userRows] = await connection.query(`SELECT id, username, password, role, name, shift, status, aktif, data, created_at, updated_at FROM users ORDER BY username`);
         const [shiftRows] = await connection.query(`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC`);
         const [auditRows] = await connection.query(`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000`);
 
@@ -708,17 +709,15 @@ app.get('/api/data', async (req, res) => {
         // SETTINGS
         // ----------------------------------------------------
 
-        let masterPajak =
-            settings[0]?.master_pajak || [];
-
-        if (typeof masterPajak === 'string') {
-
-            try {
-                masterPajak =
-                    JSON.parse(masterPajak);
-            } catch (e) {
-                masterPajak = [];
-            }
+        // Master pajak dibaca dari tabel sebagai sumber utama.
+        let masterPajak = masterPajakRows.map(p => ({
+            id:p.id, jenis:p.jenis, persentase:Number(p.persentase)||0,
+            kode_pajak:p.kode_pajak||'', aktif:Number(p.aktif)===1, keterangan:p.keterangan||''
+        }));
+        // Kompatibilitas data lama: jika tabel benar-benar kosong, gunakan JSON lama.
+        if (masterPajak.length === 0) {
+            masterPajak = safeJSON(settings[0]?.master_pajak, []);
+            if (!Array.isArray(masterPajak)) masterPajak = [];
         }
 
         let users =
@@ -743,17 +742,11 @@ app.get('/api/data', async (req, res) => {
             keterangan: b.keterangan || ''
         }));
 
-        // Jika tabel master_bank masih kosong, pertahankan data JSON lama.
-        if (masterBank.length === 0) {
-            masterBank = safeJSON(settings[0]?.master_bank, []);
-            if (!Array.isArray(masterBank)) masterBank = [];
-        }
-
-        // Gunakan tabel users jika sudah ada, fallback ke JSON lama.
+        // Tabel master_bank adalah sumber utama. JSON lama tidak lagi dipakai saat runtime.
         if (userRows.length > 0) {
             users = userRows.map(u => {
                 const extra = safeJSON(u.data, {});
-                return { ...extra, username:u.username, password:u.password, role:u.role, name:u.name, aktif:Number(u.aktif) === 1 };
+                return { ...extra, id:u.id, username:u.username, password:u.password, role:u.role, name:u.name, shift:u.shift||'', status:u.status||(Number(u.aktif)===1?'Aktif':'Nonaktif'), aktif:Number(u.aktif) === 1 };
             });
         }
 
@@ -2613,332 +2606,127 @@ app.delete('/api/partner/:id', async (req, res) => {
 // 16. SETTINGS
 // ============================================================
 
+// ============================================================
+// 5. SETTINGS RINGAN
+// ============================================================
+// app_settings hanya menyimpan setting ringan. User, bank, shift dan
+// audit trail mempunyai tabel masing-masing sebagai single source of truth.
 app.put('/api/settings', async (req, res) => {
-    const body = req.body || {};
-    const has = (key) => Object.prototype.hasOwnProperty.call(body, key);
-
-    const kasAwal = has('kasAwal') ? safeNumber(body.kasAwal) : null;
-    const activeShiftStart = has('activeShiftStart')
-        ? safeNumber(body.activeShiftStart, Date.now())
-        : null;
-    const masterPajak = Array.isArray(body.masterPajak) ? body.masterPajak : null;
-    const masterBank = Array.isArray(body.masterBank) ? body.masterBank : null;
-    const users = Array.isArray(body.users) ? body.users : null;
-    const shiftSessions = Array.isArray(body.shiftSessions) ? body.shiftSessions : null;
-    const auditTrail = Array.isArray(body.auditTrail) ? body.auditTrail : null;
-    const cashExpenses = Array.isArray(body.cashExpenses) ? body.cashExpenses : null;
-    const cashInflows = Array.isArray(body.cashInflows) ? body.cashInflows : null;
-    const returRecords = Array.isArray(body.returRecords) ? body.returRecords : null;
-
+    const data = req.body || {};
     let conn;
-
     try {
-        // Pastikan schema tersedia sebelum penyimpanan. Ini penting saat deploy baru
-        // atau database lama belum pernah menjalankan /api/init.
         await initializeDatabase();
-
         conn = await pool.getConnection();
         await conn.beginTransaction();
-
-        // --------------------------------------------------------
-        // app_settings: hanya update field yang benar-benar dikirim.
-        // Jangan mengosongkan data lama jika frontend tidak mengirim field.
-        // --------------------------------------------------------
-        const current = await conn.query(`SELECT * FROM app_settings WHERE id = 1 LIMIT 1`);
-        if (!current[0].length) {
+        const [rows] = await conn.query('SELECT id FROM app_settings WHERE id = 1 LIMIT 1');
+        if (!rows.length) {
             await conn.query(`INSERT INTO app_settings
                 (id, kas_awal, active_shift_start, master_pajak, users, shift_sessions, master_bank, audit_trail)
-                VALUES (1,0,?,?,?,?,?,?)`, [
-                JSON.stringify([]), JSON.stringify([]), JSON.stringify([]), JSON.stringify([]), JSON.stringify([])
+                VALUES (1, ?, ?, JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY())`, [
+                safeNumber(data.kasAwal), safeNumber(data.activeShiftStart, Date.now())
+            ]);
+        } else {
+            await conn.query(`UPDATE app_settings SET kas_awal=?, active_shift_start=? WHERE id=1`, [
+                safeNumber(data.kasAwal), safeNumber(data.activeShiftStart, Date.now())
             ]);
         }
-
-        const setParts = [];
-        const setValues = [];
-
-        if (kasAwal !== null) { setParts.push('kas_awal = ?'); setValues.push(kasAwal); }
-        if (activeShiftStart !== null) { setParts.push('active_shift_start = ?'); setValues.push(activeShiftStart); }
-        if (masterPajak !== null) { setParts.push('master_pajak = ?'); setValues.push(JSON.stringify(masterPajak)); }
-        if (masterBank !== null) { setParts.push('master_bank = ?'); setValues.push(JSON.stringify(masterBank)); }
-        if (users !== null) { setParts.push('users = ?'); setValues.push(JSON.stringify(users)); }
-        if (shiftSessions !== null) { setParts.push('shift_sessions = ?'); setValues.push(JSON.stringify(shiftSessions)); }
-        if (auditTrail !== null) { setParts.push('audit_trail = ?'); setValues.push(JSON.stringify(auditTrail)); }
-
-        if (setParts.length) {
-            setValues.push(1);
-            await conn.query(`UPDATE app_settings SET ${setParts.join(', ')} WHERE id = ?`, setValues);
-        }
-
-        // --------------------------------------------------------
-        // MASTER PAJAK
-        // --------------------------------------------------------
-        if (masterPajak !== null) {
-            await conn.query(`DELETE FROM master_pajak`);
-            const seen = new Set();
-            for (let i = 0; i < masterPajak.length; i++) {
-                const p = masterPajak[i] || {};
-                let id = safeInteger(p.id, i + 1);
-                if (id === null || id <= 0 || seen.has(id)) id = i + 1;
-                while (seen.has(id)) id++;
-                seen.add(id);
-
-                await conn.query(`
-                    INSERT INTO master_pajak
-                    (id, jenis, persentase, kode_pajak, aktif, keterangan)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                `, [
-                    id,
-                    safeString(p.jenis || p.nama),
-                    safeNumber(p.persentase),
-                    safeString(p.kode_pajak),
-                    p.aktif === false ? 0 : 1,
-                    safeString(p.keterangan)
-                ]);
-            }
-        }
-
-        // --------------------------------------------------------
-        // MASTER BANK
-        // Frontend awal mengirim string seperti "BCA", tetapi database
-        // tetap menyimpan detail bila frontend mengirim object.
-        // --------------------------------------------------------
-        if (masterBank !== null) {
-            await conn.query(`DELETE FROM master_bank`);
-            const seen = new Set();
-            for (let i = 0; i < masterBank.length; i++) {
-                const b = masterBank[i];
-                let id = safeInteger(b && typeof b === 'object' ? b.id : null, i + 1);
-                if (id === null || id <= 0 || seen.has(id)) id = i + 1;
-                while (seen.has(id)) id++;
-                seen.add(id);
-
-                const nama = typeof b === 'string'
-                    ? b
-                    : safeString(b?.nama || b?.bank);
-
-                if (!nama.trim()) continue;
-
-                await conn.query(`
-                    INSERT INTO master_bank
-                    (id, nama, rekening, atas_nama, aktif, keterangan)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                `, [
-                    id,
-                    nama,
-                    typeof b === 'object' ? safeString(b.rekening || b.nomor_rekening) : '',
-                    typeof b === 'object' ? safeString(b.atas_nama || b.nama_rekening) : '',
-                    typeof b === 'object' && b.aktif === false ? 0 : 1,
-                    typeof b === 'object' ? safeString(b.keterangan) : ''
-                ]);
-            }
-        }
-
-        // --------------------------------------------------------
-        // USERS
-        // Jangan pernah menghapus admin. Upsert agar password/role
-        // yang diedit tetap tersimpan dan user lama tidak rusak.
-        // --------------------------------------------------------
-        if (users !== null) {
-            const incomingUsers = users.filter(u => u && safeString(u.username).trim());
-
-            // Pastikan admin selalu ada sebelum sinkronisasi.
-            await conn.query(`
-                INSERT INTO users (username,password,role,name,aktif,data)
-                VALUES ('admin','admin123','Admin','Administrator',1,?)
-                ON DUPLICATE KEY UPDATE username = username
-            `, [JSON.stringify({ username:'admin', password:'admin123', role:'Admin', name:'Administrator' })]);
-
-            for (const u of incomingUsers) {
-                await conn.query(`
-                    INSERT INTO users
-                    (username, password, role, name, aktif, data)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        password = VALUES(password),
-                        role = VALUES(role),
-                        name = VALUES(name),
-                        aktif = VALUES(aktif),
-                        data = VALUES(data)
-                `, [
-                    safeString(u.username),
-                    safeString(u.password),
-                    safeString(u.role, 'Kasir'),
-                    safeString(u.name),
-                    u.aktif === false ? 0 : 1,
-                    JSON.stringify(u)
-                ]);
-            }
-
-            // Jika frontend menghapus akun, hapus akun tersebut dari tabel.
-            // Admin dikecualikan agar login admin tidak pernah hilang.
-            const usernames = incomingUsers
-                .map(u => safeString(u.username).trim())
-                .filter(Boolean);
-
-            if (usernames.length) {
-                const placeholders = usernames.map(() => '?').join(',');
-                await conn.query(
-                    `DELETE FROM users WHERE username <> 'admin' AND username NOT IN (${placeholders})`,
-                    usernames
-                );
-            } else {
-                await conn.query(`DELETE FROM users WHERE username <> 'admin'`);
-            }
-        }
-
-        // --------------------------------------------------------
-        // SHIFT SESSIONS
-        // --------------------------------------------------------
-        if (shiftSessions !== null) {
-            await conn.query(`DELETE FROM shift_sessions`);
-            const used = new Set();
-            for (let i = 0; i < shiftSessions.length; i++) {
-                const x = shiftSessions[i] || {};
-                let id = safeString(x.id || x.sessionId);
-                if (!id) id = `SHIFT-${Date.now()}-${i}`;
-                let base = id, n = 1;
-                while (used.has(id)) id = `${base}-${n++}`;
-                used.add(id);
-
-                await conn.query(`
-                    INSERT INTO shift_sessions
-                    (id, username, name, shift, start_time, end_time, status, data)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                `, [
-                    id,
-                    safeString(x.username || x.user),
-                    safeString(x.name || x.cashierName),
-                    safeString(x.shift),
-                    x.start_time || x.startTime ? safeDate(x.start_time || x.startTime) : null,
-                    x.end_time || x.endTime ? safeDate(x.end_time || x.endTime) : null,
-                    safeString(x.status),
-                    JSON.stringify(x)
-                ]);
-            }
-        }
-
-        // --------------------------------------------------------
-        // AUDIT TRAIL
-        // --------------------------------------------------------
-        if (auditTrail !== null) {
-            await conn.query(`DELETE FROM audit_trail`);
-            const used = new Set();
-            for (let i = 0; i < auditTrail.length && i < 1000; i++) {
-                const x = auditTrail[i] || {};
-                let id = safeString(x.id);
-                if (!id) id = `AUDIT-${Date.now()}-${i}`;
-                let base = id, n = 1;
-                while (used.has(id)) id = `${base}-${n++}`;
-                used.add(id);
-
-                await conn.query(`
-                    INSERT INTO audit_trail
-                    (id, timestamp, username, name, action, details, data)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                `, [
-                    id,
-                    safeNumber(x.timestamp, Date.now()),
-                    safeString(x.username || x.user),
-                    safeString(x.name),
-                    safeString(x.action),
-                    safeString(x.details || x.description),
-                    JSON.stringify(x)
-                ]);
-            }
-        }
-
-        // --------------------------------------------------------
-        // RETUR RECORDS
-        // --------------------------------------------------------
-        if (returRecords !== null) {
-            for (const r of returRecords) {
-                if (!r || r.id === undefined || r.id === null || !String(r.id).trim()) continue;
-                await conn.query(`
-                    INSERT INTO retur_records
-                    (id, parent_invoice, tanggal, kasir, pelanggan, items, exchange_items)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        parent_invoice = VALUES(parent_invoice),
-                        tanggal = VALUES(tanggal),
-                        kasir = VALUES(kasir),
-                        pelanggan = VALUES(pelanggan),
-                        items = VALUES(items),
-                        exchange_items = VALUES(exchange_items)
-                `, [
-                    String(r.id),
-                    safeString(r.parent_invoice || r.parentInvoice),
-                    safeDate(r.tanggal || r.date),
-                    safeString(r.kasir || r.user),
-                    safeString(r.pelanggan || r.customer),
-                    JSON.stringify(Array.isArray(r.items) ? r.items : []),
-                    JSON.stringify(Array.isArray(r.exchange_items || r.exchangeItems) ? (r.exchange_items || r.exchangeItems) : [])
-                ]);
-            }
-        }
-
-        // --------------------------------------------------------
-        // KAS MASUK / KELUAR
-        // --------------------------------------------------------
-        if (cashExpenses !== null && cashExpenses.length) {
-            const values = cashExpenses.filter(e => safeInteger(e.id) !== null).map(e => [
-                safeInteger(e.id), safeDate(e.tanggal), safeNumber(e.jumlah), safeString(e.keterangan), safeString(e.kasir)
+        // Kompatibilitas: data lama yang masih memakai saveData tetap dapat di-upsert.
+        for (const x of (Array.isArray(data.cashExpenses) ? data.cashExpenses : [])) {
+            if (!x || x.id === undefined || x.id === null) continue;
+            await conn.query(`INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir) VALUES (?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir)`, [
+                safeInteger(x.id), safeDate(x.tanggal), safeNumber(x.jumlah), safeString(x.keterangan), safeString(x.kasir)
             ]);
-            if (values.length) {
-                await conn.query(`
-                    INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir)
-                    VALUES ?
-                    ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal), jumlah=VALUES(jumlah), keterangan=VALUES(keterangan), kasir=VALUES(kasir)
-                `, [values]);
-            }
         }
-
-        if (cashInflows !== null && cashInflows.length) {
-            const values = cashInflows.filter(e => safeInteger(e.id) !== null).map(e => [
-                safeInteger(e.id), safeDate(e.tanggal), safeNumber(e.jumlah), safeString(e.keterangan), safeString(e.kasir)
+        for (const x of (Array.isArray(data.cashInflows) ? data.cashInflows : [])) {
+            if (!x || x.id === undefined || x.id === null) continue;
+            await conn.query(`INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir) VALUES (?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir)`, [
+                safeInteger(x.id), safeDate(x.tanggal), safeNumber(x.jumlah), safeString(x.keterangan), safeString(x.kasir)
             ]);
-            if (values.length) {
-                await conn.query(`
-                    INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir)
-                    VALUES ?
-                    ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal), jumlah=VALUES(jumlah), keterangan=VALUES(keterangan), kasir=VALUES(kasir)
-                `, [values]);
-            }
         }
-
+        for (const r of (Array.isArray(data.returRecords) ? data.returRecords : [])) {
+            if (!r || !String(r.id || '').trim()) continue;
+            await conn.query(`INSERT INTO retur_records (id,parent_invoice,tanggal,kasir,pelanggan,items,exchange_items)
+                VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE parent_invoice=VALUES(parent_invoice),tanggal=VALUES(tanggal),kasir=VALUES(kasir),pelanggan=VALUES(pelanggan),items=VALUES(items),exchange_items=VALUES(exchange_items)`, [
+                safeString(r.id),safeString(r.parent_invoice),safeDate(r.tanggal),safeString(r.kasir),safeString(r.pelanggan),
+                JSON.stringify(Array.isArray(r.items)?r.items:[]),JSON.stringify(Array.isArray(r.exchange_items)?r.exchange_items:[])
+            ]);
+        }
         await conn.commit();
         invalidateDataCache();
-
-        return res.json({
-            success: true,
-            message: 'Settings berhasil disimpan',
-            saved: {
-                kasAwal: kasAwal !== null,
-                masterPajak: masterPajak !== null,
-                masterBank: masterBank !== null,
-                users: users !== null,
-                shiftSessions: shiftSessions !== null,
-                auditTrail: auditTrail !== null,
-                returRecords: returRecords !== null,
-                cashExpenses: cashExpenses !== null,
-                cashInflows: cashInflows !== null
-            }
-        });
-
-    } catch (error) {
-        if (conn) {
-            try { await conn.rollback(); } catch (e) {}
-        }
-        console.error('[SETTINGS] ERROR:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'Gagal menyimpan settings: ' + error.message
-        });
-    } finally {
-        if (conn) conn.release();
-    }
+        res.json({success:true,message:'Settings berhasil disimpan.'});
+    } catch(error) {
+        if(conn) try{await conn.rollback();}catch(_){ }
+        console.error('SETTINGS ERROR:',error);
+        res.status(500).json({success:false,error:error.message});
+    } finally { if(conn) conn.release(); }
 });
 
 // ============================================================
+// USER API - update satu akun, tanpa DELETE/INSERT seluruh tabel
+// ============================================================
+app.get('/api/users', async (req,res)=>{
+    try {
+        const [rows]=await pool.query(`SELECT username,password,role,name,shift,status,aktif,data,updated_at FROM users ORDER BY username`);
+        res.json({success:true,users:rows.map(u=>({...safeJSON(u.data,{}),username:u.username,password:u.password,role:u.role,name:u.name||'',shift:u.shift||'',status:u.status||(Number(u.aktif)===1?'Aktif':'Nonaktif'),aktif:Number(u.aktif)===1}))});
+    } catch(error){res.status(500).json({success:false,error:error.message});}
+});
+app.post('/api/users', async (req,res)=>{
+    const x=req.body||{}, username=safeString(x.username).trim();
+    if(!username) return res.status(400).json({success:false,error:'Username wajib diisi.'});
+    if(!safeString(x.password).trim()) return res.status(400).json({success:false,error:'Password wajib diisi.'});
+    try {
+        const [dup]=await pool.query('SELECT username FROM users WHERE username=? LIMIT 1',[username]);
+        if(dup.length) return res.status(409).json({success:false,error:'Username sudah digunakan.'});
+        await pool.query(`INSERT INTO users (username,password,role,name,shift,status,aktif,data) VALUES (?,?,?,?,?,?,?,?)`,[
+            username,safeString(x.password),safeString(x.role,'Kasir'),safeString(x.name),safeString(x.shift),safeString(x.status,x.aktif===false?'Nonaktif':'Aktif'),x.aktif===false?0:1,JSON.stringify(x)
+        ]);
+        invalidateDataCache(); res.json({success:true});
+    } catch(error){res.status(error.code==='ER_DUP_ENTRY'?409:500).json({success:false,error:error.message});}
+});
+app.put('/api/users/:username', async (req,res)=>{
+    const oldUsername=safeString(req.params.username).trim(), x=req.body||{}, username=safeString(x.username,oldUsername).trim();
+    if(!oldUsername||!username) return res.status(400).json({success:false,error:'Username tidak valid.'});
+    try {
+        const [rows]=await pool.query('SELECT * FROM users WHERE username=? LIMIT 1',[oldUsername]);
+        if(!rows.length) return res.status(404).json({success:false,error:'Akun tidak ditemukan.'});
+        if(username!==oldUsername){const [dup]=await pool.query('SELECT username FROM users WHERE username=? LIMIT 1',[username]);if(dup.length)return res.status(409).json({success:false,error:'Username sudah digunakan.'});}
+        const old=rows[0];
+        const password=(Object.prototype.hasOwnProperty.call(x,'password')&&safeString(x.password).trim())?safeString(x.password).trim():old.password;
+        const role=safeString(x.role,old.role||'Kasir'), name=safeString(x.name,old.name||''), shift=safeString(x.shift,old.shift||'');
+        const aktif=x.aktif===undefined?Number(old.aktif)===1:x.aktif!==false, status=safeString(x.status,aktif?'Aktif':'Nonaktif');
+        const merged={...safeJSON(old.data,{}),...x,username,password,role,name,shift,aktif,status};
+        await pool.query(`UPDATE users SET username=?,password=?,role=?,name=?,shift=?,status=?,aktif=?,data=? WHERE username=?`,[username,password,role,name,shift,status,aktif?1:0,JSON.stringify(merged),oldUsername]);
+        invalidateDataCache(); res.json({success:true,user:merged});
+    } catch(error){res.status(error.code==='ER_DUP_ENTRY'?409:500).json({success:false,error:error.message});}
+});
+
+// ============================================================
+// MASTER BANK API
+// ============================================================
+app.get('/api/master-bank', async (req,res)=>{try{const [rows]=await pool.query('SELECT id,nama,rekening,atas_nama,aktif,keterangan FROM master_bank ORDER BY id');res.json({success:true,data:rows.map(x=>({...x,aktif:Number(x.aktif)===1}))});}catch(error){res.status(500).json({success:false,error:error.message});}});
+app.post('/api/master-bank', async (req,res)=>{const x=req.body||{},nama=safeString(x.nama||x.bank).trim();if(!nama)return res.status(400).json({success:false,error:'Nama bank wajib diisi.'});try{const [r]=await pool.query('INSERT INTO master_bank (nama,rekening,atas_nama,aktif,keterangan) VALUES (?,?,?,?,?)',[nama,safeString(x.rekening||x.nomor_rekening),safeString(x.atas_nama||x.nama_rekening),x.aktif===false?0:1,safeString(x.keterangan)]);invalidateDataCache();res.json({success:true,id:r.insertId});}catch(error){res.status(error.code==='ER_DUP_ENTRY'?409:500).json({success:false,error:error.message});}});
+app.put('/api/master-bank/:id', async (req,res)=>{const id=safeInteger(req.params.id),x=req.body||{},nama=safeString(x.nama||x.bank).trim();if(!id)return res.status(400).json({success:false,error:'ID bank tidak valid.'});if(!nama)return res.status(400).json({success:false,error:'Nama bank wajib diisi.'});try{await pool.query('UPDATE master_bank SET nama=?,rekening=?,atas_nama=?,aktif=?,keterangan=? WHERE id=?',[nama,safeString(x.rekening||x.nomor_rekening),safeString(x.atas_nama||x.nama_rekening),x.aktif===false?0:1,safeString(x.keterangan),id]);invalidateDataCache();res.json({success:true});}catch(error){res.status(error.code==='ER_DUP_ENTRY'?409:500).json({success:false,error:error.message});}});
+app.delete('/api/master-bank/:id', async (req,res)=>{const id=safeInteger(req.params.id);if(!id)return res.status(400).json({success:false,error:'ID bank tidak valid.'});try{await pool.query('UPDATE master_bank SET aktif=0 WHERE id=?',[id]);invalidateDataCache();res.json({success:true});}catch(error){res.status(500).json({success:false,error:error.message});}});
+
+// ============================================================
+// MASTER PAJAK API - upsert tanpa menghapus seluruh tabel
+// ============================================================
+app.put('/api/master-pajak/bulk', async (req,res)=>{const items=Array.isArray(req.body?.data)?req.body.data:[];let conn;try{conn=await pool.getConnection();await conn.beginTransaction();for(let i=0;i<items.length;i++){const x=items[i]||{},jenis=safeString(x.jenis||x.nama).trim();if(!jenis)continue;const id=safeInteger(x.id,i+1);await conn.query(`INSERT INTO master_pajak (id,jenis,persentase,kode_pajak,aktif,keterangan) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE jenis=VALUES(jenis),persentase=VALUES(persentase),kode_pajak=VALUES(kode_pajak),aktif=VALUES(aktif),keterangan=VALUES(keterangan)`,[id,jenis,safeNumber(x.persentase),safeString(x.kode_pajak),x.aktif===false?0:1,safeString(x.keterangan)]);}await conn.commit();invalidateDataCache();res.json({success:true});}catch(error){if(conn)try{await conn.rollback();}catch(_){}res.status(500).json({success:false,error:error.message});}finally{if(conn)conn.release();}});
+
+// ============================================================
+// SHIFT API - satu sesi per request
+// ============================================================
+app.put('/api/shift-sessions/:id', async (req,res)=>{const id=safeString(req.params.id).trim(),x=req.body||{};if(!id)return res.status(400).json({success:false,error:'ID shift tidak valid.'});try{await pool.query(`INSERT INTO shift_sessions (id,username,name,shift,start_time,end_time,status,data) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE username=VALUES(username),name=VALUES(name),shift=VALUES(shift),start_time=VALUES(start_time),end_time=VALUES(end_time),status=VALUES(status),data=VALUES(data)`,[id,safeString(x.username),safeString(x.name||x.cashierName),safeString(x.shift),x.start_time?safeDate(x.start_time):(x.start?safeDate(x.start):null),x.end_time?safeDate(x.end_time):(x.end?safeDate(x.end):null),safeString(x.status),JSON.stringify(x)]);invalidateDataCache();res.json({success:true});}catch(error){res.status(500).json({success:false,error:error.message});}});
+app.delete('/api/shift-sessions/:id', async (req,res)=>{const id=safeString(req.params.id);try{await pool.query('DELETE FROM shift_sessions WHERE id=?',[id]);invalidateDataCache();res.json({success:true});}catch(error){res.status(500).json({success:false,error:error.message});}});
+
+// ============================================================
+// AUDIT TRAIL - append only
+// ============================================================
+app.post('/api/audit-trail', async (req,res)=>{const x=req.body||{},id=safeString(x.id).trim();if(!id)return res.status(400).json({success:false,error:'ID audit wajib diisi.'});try{await pool.query(`INSERT IGNORE INTO audit_trail (id,timestamp,username,name,action,details,data) VALUES (?,?,?,?,?,?,?)`,[id,safeInteger(x.timestamp,Date.now()),safeString(x.username,'system'),safeString(x.userName||x.name,'System'),safeString(x.action),safeString(x.details||''),JSON.stringify(x)]);invalidateDataCache();res.json({success:true});}catch(error){res.status(500).json({success:false,error:error.message});}});
+
+
 // 17. RESTORE DATA
 // ============================================================
 // CATATAN:
@@ -3924,7 +3712,8 @@ async function initializeDatabase() {
 
     const userColumns = {
         password: "VARCHAR(255) DEFAULT ''", role: "VARCHAR(50) DEFAULT ''",
-        name: "VARCHAR(255) DEFAULT ''", aktif: "TINYINT(1) DEFAULT 1",
+        name: "VARCHAR(255) DEFAULT ''", shift: "VARCHAR(100) DEFAULT ''",
+        status: "VARCHAR(20) DEFAULT 'Aktif'", aktif: "TINYINT(1) DEFAULT 1",
         data: "JSON NULL", updated_at: "DATETIME NULL"
     };
 
@@ -4020,6 +3809,37 @@ async function initializeDatabase() {
     for (const u of defaultUsers) {
         await pool.query(`INSERT IGNORE INTO users (username,password,role,name,aktif,data) VALUES (?,?,?,?,1,?)`,
             [u.username,u.password,u.role,u.name,JSON.stringify(u)]);
+    }
+
+    // Migrasi satu kali dari JSON lama -> tabel jika tabel master masih kosong.
+    // Tidak pernah menghapus tabel yang sudah berisi data.
+    const [bankCount] = await pool.query('SELECT COUNT(*) AS n FROM master_bank');
+    if (Number(bankCount[0].n) === 0) {
+        const [st] = await pool.query('SELECT master_bank FROM app_settings WHERE id=1 LIMIT 1');
+        const legacyBanks = safeJSON(st[0]?.master_bank, []);
+        if (Array.isArray(legacyBanks)) {
+            for (let i=0;i<legacyBanks.length;i++) {
+                const b=legacyBanks[i]; const nama=typeof b==='string'?b:safeString(b?.nama||b?.bank).trim();
+                if(!nama) continue;
+                try { await pool.query('INSERT INTO master_bank (id,nama,rekening,atas_nama,aktif,keterangan) VALUES (?,?,?,?,?,?)',[
+                    safeInteger(typeof b==='object'?b.id:null,i+1),nama,typeof b==='object'?safeString(b.rekening||b.nomor_rekening):'',typeof b==='object'?safeString(b.atas_nama||b.nama_rekening):'',typeof b==='object'&&b.aktif===false?0:1,typeof b==='object'?safeString(b.keterangan):''
+                ]); } catch(e) { if(e.code!=='ER_DUP_ENTRY') throw e; }
+            }
+        }
+    }
+
+    const [pajakTableCount] = await pool.query('SELECT COUNT(*) AS n FROM master_pajak');
+    if (Number(pajakTableCount[0].n) === 0) {
+        const [stPajak] = await pool.query('SELECT master_pajak FROM app_settings WHERE id=1 LIMIT 1');
+        const legacyPajak = safeJSON(stPajak[0]?.master_pajak, []);
+        if (Array.isArray(legacyPajak)) {
+            for (let i=0;i<legacyPajak.length;i++) {
+                const x=legacyPajak[i]||{}, jenis=safeString(x.jenis||x.nama).trim(); if(!jenis) continue;
+                try { await pool.query('INSERT INTO master_pajak (id,jenis,persentase,kode_pajak,aktif,keterangan) VALUES (?,?,?,?,?,?)',[
+                    safeInteger(x.id,i+1),jenis,safeNumber(x.persentase),safeString(x.kode_pajak),x.aktif===false?0:1,safeString(x.keterangan)
+                ]); } catch(e) { if(e.code!=='ER_DUP_ENTRY') throw e; }
+            }
+        }
     }
 
     // Sinkronisasi settings lama jika JSON-nya kosong.
