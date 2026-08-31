@@ -292,11 +292,22 @@ app.get('/api/init', async (req, res) => {
                 kas_awal BIGINT DEFAULT 0,
                 active_shift_start BIGINT,
                 master_pajak JSON,
-                users JSON
+                users JSON,
+                shift_sessions JSON
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
         `);
+
+        // Pastikan kolom shift_sessions tersedia pada database lama.
+        try {
+            await pool.query(`
+                ALTER TABLE app_settings
+                ADD COLUMN shift_sessions JSON
+            `);
+        } catch (e) {
+            // Kolom sudah ada, lanjut.
+        }
 
         const [settings] = await pool.query(`
             SELECT *
@@ -313,9 +324,10 @@ app.get('/api/init', async (req, res) => {
                     kas_awal,
                     active_shift_start,
                     master_pajak,
-                    users
+                    users,
+                    shift_sessions
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
             `, [
                 1,
                 0,
@@ -371,7 +383,8 @@ app.get('/api/init', async (req, res) => {
                         role: 'Kasir',
                         name: 'Kasir Siang'
                     }
-                ])
+                ]),
+                JSON.stringify([])
             ]);
         }
 
@@ -737,13 +750,15 @@ app.post('/api/migrate', async (req, res) => {
                     kas_awal = ?,
                     active_shift_start = ?,
                     master_pajak = ?,
-                    users = ?
+                    users = ?,
+                    shift_sessions = ?
                 WHERE id = 1
             `, [
                 safeNumber(oldData.kasAwal),
                 oldData.activeShiftStart || Date.now(),
                 JSON.stringify(oldData.masterPajak || []),
-                JSON.stringify(oldData.users || [])
+                JSON.stringify(oldData.users || []),
+                JSON.stringify(Array.isArray(oldData.shiftSessions) ? oldData.shiftSessions : [])
             ]);
         }
 
@@ -959,6 +974,21 @@ app.get('/api/data', async (req, res) => {
             }
         }
 
+        let shiftSessions =
+            settings[0]?.shift_sessions || [];
+
+        if (typeof shiftSessions === 'string') {
+            try {
+                shiftSessions = JSON.parse(shiftSessions);
+            } catch (e) {
+                shiftSessions = [];
+            }
+        }
+
+        if (!Array.isArray(shiftSessions)) {
+            shiftSessions = [];
+        }
+
         const result = {
 
             spareparts,
@@ -984,7 +1014,9 @@ app.get('/api/data', async (req, res) => {
 
             masterPajak,
 
-            users
+            users,
+
+            shiftSessions
         };
 
         dataCache = result;
@@ -2785,6 +2817,7 @@ app.put('/api/settings', async (req, res) => {
         activeShiftStart,
         masterPajak,
         users,
+        shiftSessions,
         cashExpenses,
         cashInflows
     } = req.body || {};
@@ -2797,7 +2830,8 @@ app.put('/api/settings', async (req, res) => {
                 kas_awal = ?,
                 active_shift_start = ?,
                 master_pajak = ?,
-                users = ?
+                users = ?,
+                shift_sessions = ?
             WHERE id = 1
         `, [
 
@@ -2817,6 +2851,12 @@ app.put('/api/settings', async (req, res) => {
             JSON.stringify(
                 Array.isArray(users)
                     ? users
+                    : []
+            ),
+
+            JSON.stringify(
+                Array.isArray(shiftSessions)
+                    ? shiftSessions
                     : []
             )
         ]);
@@ -3518,7 +3558,8 @@ app.post('/api/restore', async (req, res) => {
                 kas_awal = ?,
                 active_shift_start = ?,
                 master_pajak = ?,
-                users = ?
+                users = ?,
+                shift_sessions = ?
             WHERE id = 1
         `, [
 
@@ -3542,6 +3583,12 @@ app.post('/api/restore', async (req, res) => {
                     data.users
                 )
                     ? data.users
+                    : []
+            ),
+
+            JSON.stringify(
+                Array.isArray(data.shiftSessions)
+                    ? data.shiftSessions
                     : []
             )
         ]);
