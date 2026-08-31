@@ -144,376 +144,13 @@ function safeJSON(value, defaultValue = []) {
 
 app.get('/api/init', async (req, res) => {
     try {
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS spareparts (
-                id BIGINT PRIMARY KEY,
-                kode VARCHAR(50),
-                part_number VARCHAR(255),
-                part_numbers_alt TEXT,
-                nama VARCHAR(500),
-                kategori VARCHAR(100),
-                merek VARCHAR(100),
-                satuan VARCHAR(50),
-                stok_min INT DEFAULT 0,
-                stok_awal INT DEFAULT 0,
-                harga_beli BIGINT DEFAULT 0,
-                harga_jual BIGINT DEFAULT 0,
-                satuan_alt VARCHAR(50),
-                isi_satuan_alt INT DEFAULT 0,
-                harga_jual_alt BIGINT DEFAULT 0,
-                pajak_status VARCHAR(20),
-                kode_pajak VARCHAR(50),
-                keterangan TEXT
-            )
-            ENGINE=InnoDB
-            DEFAULT CHARSET=utf8mb4
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS transactions (
-                id BIGINT PRIMARY KEY,
-                nomor_transaksi VARCHAR(50),
-                tanggal DATETIME,
-                sparepart_id BIGINT,
-                custom_item VARCHAR(500),
-                part_numbers_alt TEXT,
-                merek VARCHAR(100),
-                jenis VARCHAR(20),
-                jumlah INT,
-                satuan VARCHAR(50),
-                jumlah_dasar INT,
-                harga_satuan BIGINT,
-                tujuan VARCHAR(255),
-                keterangan TEXT,
-                source VARCHAR(50),
-                kasir VARCHAR(100),
-                status_bayar VARCHAR(20),
-                metode_bayar VARCHAR(50),
-                bayar_tunai BIGINT DEFAULT 0,
-                transfer_amount BIGINT DEFAULT 0,
-                kembalian_diberikan BIGINT DEFAULT 0,
-                diskon BIGINT DEFAULT 0,
-                tanggal_lunas DATETIME NULL
-            )
-            ENGINE=InnoDB
-            DEFAULT CHARSET=utf8mb4
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS partners (
-                id BIGINT PRIMARY KEY,
-                nama VARCHAR(255),
-                tipe VARCHAR(50),
-                telp VARCHAR(50),
-                alamat TEXT
-            )
-            ENGINE=InnoDB
-            DEFAULT CHARSET=utf8mb4
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS cash_expenses (
-                id BIGINT PRIMARY KEY,
-                tanggal DATETIME,
-                jumlah BIGINT,
-                keterangan TEXT,
-                kasir VARCHAR(100)
-            )
-            ENGINE=InnoDB
-            DEFAULT CHARSET=utf8mb4
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS cash_inflows (
-                id BIGINT PRIMARY KEY,
-                tanggal DATETIME,
-                jumlah BIGINT,
-                keterangan TEXT,
-                kasir VARCHAR(100)
-            )
-            ENGINE=InnoDB
-            DEFAULT CHARSET=utf8mb4
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS tax_records (
-                tax_id VARCHAR(100) PRIMARY KEY,
-                trx_id BIGINT,
-                tanggal DATETIME,
-                nomor_transaksi VARCHAR(50),
-                part_number VARCHAR(255),
-                nama VARCHAR(500),
-                kategori VARCHAR(100),
-                merek VARCHAR(100),
-                status_bayar VARCHAR(20),
-                pelanggan VARCHAR(255),
-                jumlah INT,
-                satuan VARCHAR(50),
-                harga_satuan BIGINT,
-                subtotal BIGINT,
-                persentase_pajak DECIMAL(5,2),
-                nilai_pajak BIGINT
-            )
-            ENGINE=InnoDB
-            DEFAULT CHARSET=utf8mb4
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS retur_records (
-                id VARCHAR(50) PRIMARY KEY,
-                parent_invoice VARCHAR(50),
-                tanggal DATETIME,
-                kasir VARCHAR(100),
-                pelanggan VARCHAR(255),
-                items JSON,
-                exchange_items JSON
-            )
-            ENGINE=InnoDB
-            DEFAULT CHARSET=utf8mb4
-        `);
-
-        // =====================================================
-        // Pastikan exchange_items tersedia pada database lama
-        // =====================================================
-
-        try {
-            await pool.query(`
-                ALTER TABLE retur_records
-                ADD COLUMN exchange_items JSON
-            `);
-        } catch (e) {
-            // Kolom kemungkinan sudah ada.
-        }
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS app_settings (
-                id INT PRIMARY KEY DEFAULT 1,
-                kas_awal BIGINT DEFAULT 0,
-                active_shift_start BIGINT,
-                master_pajak JSON,
-                users JSON,
-                shift_sessions JSON
-            )
-            ENGINE=InnoDB
-            DEFAULT CHARSET=utf8mb4
-        `);
-
-        // =====================================================
-        // MASTER DATA TERPISAH - tetap kompatibel dengan JSON lama
-        // =====================================================
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS master_pajak (
-                id BIGINT PRIMARY KEY,
-                jenis VARCHAR(100) NOT NULL,
-                persentase DECIMAL(5,2) NOT NULL DEFAULT 0,
-                kode_pajak VARCHAR(50) DEFAULT '',
-                aktif TINYINT(1) DEFAULT 1,
-                keterangan VARCHAR(255) DEFAULT '',
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS master_bank (
-                id BIGINT PRIMARY KEY,
-                nama VARCHAR(100) NOT NULL,
-                rekening VARCHAR(100) DEFAULT '',
-                atas_nama VARCHAR(255) DEFAULT '',
-                aktif TINYINT(1) DEFAULT 1,
-                keterangan VARCHAR(255) DEFAULT '',
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS users (
-                username VARCHAR(100) PRIMARY KEY,
-                password VARCHAR(255) NOT NULL,
-                role VARCHAR(50) NOT NULL,
-                name VARCHAR(255) DEFAULT '',
-                aktif TINYINT(1) DEFAULT 1,
-                data JSON NULL,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS shift_sessions (
-                id VARCHAR(100) PRIMARY KEY,
-                username VARCHAR(100) DEFAULT '',
-                name VARCHAR(255) DEFAULT '',
-                shift VARCHAR(100) DEFAULT '',
-                start_time DATETIME NULL,
-                end_time DATETIME NULL,
-                status VARCHAR(50) DEFAULT '',
-                data JSON NULL,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS audit_trail (
-                id VARCHAR(100) PRIMARY KEY,
-                timestamp BIGINT DEFAULT 0,
-                username VARCHAR(100) DEFAULT '',
-                name VARCHAR(255) DEFAULT '',
-                action VARCHAR(255) DEFAULT '',
-                details TEXT,
-                data JSON NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        `);
-
-        // Kolom kompatibilitas pada app_settings. Data lama tidak dihapus.
-        try { await pool.query(`ALTER TABLE app_settings ADD COLUMN master_bank JSON NULL`); } catch (e) {}
-        try { await pool.query(`ALTER TABLE app_settings ADD COLUMN audit_trail JSON NULL`); } catch (e) {}
-
-        // Pastikan kolom shift_sessions tersedia pada database lama.
-        try {
-            await pool.query(`
-                ALTER TABLE app_settings
-                ADD COLUMN shift_sessions JSON
-            `);
-        } catch (e) {
-            // Kolom sudah ada, lanjut.
-        }
-
-        const [settings] = await pool.query(`
-            SELECT *
-            FROM app_settings
-            WHERE id = 1
-        `);
-
-        if (settings.length === 0) {
-
-            await pool.query(`
-                INSERT INTO app_settings
-                (
-                    id,
-                    kas_awal,
-                    active_shift_start,
-                    master_pajak,
-                    users,
-                    shift_sessions,
-                    master_bank,
-                    audit_trail
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `, [
-                1,
-                0,
-                Date.now(),
-                JSON.stringify([
-                    {
-                        jenis: 'Aki Basah',
-                        persentase: 20
-                    },
-                    {
-                        jenis: 'Aki Kering',
-                        persentase: 11
-                    },
-                    {
-                        jenis: 'Oli',
-                        persentase: 4
-                    },
-                    {
-                        jenis: 'Air Radiator',
-                        persentase: 4
-                    },
-                    {
-                        jenis: 'Minyak Rem',
-                        persentase: 4
-                    },
-                    {
-                        jenis: 'Lainnya',
-                        persentase: 11
-                    }
-                ]),
-                JSON.stringify([
-                    {
-                        username: 'owner',
-                        password: 'owner123',
-                        role: 'Owner',
-                        name: 'Pemilik'
-                    },
-                    {
-                        username: 'admin',
-                        password: 'admin123',
-                        role: 'Admin',
-                        name: 'Administrator'
-                    },
-                    {
-                        username: 'pagi',
-                        password: 'pagi123',
-                        role: 'Kasir',
-                        name: 'Kasir Pagi'
-                    },
-                    {
-                        username: 'siang',
-                        password: 'siang123',
-                        role: 'Kasir',
-                        name: 'Kasir Siang'
-                    }
-                ]),
-                JSON.stringify([]),
-                JSON.stringify([]),
-                JSON.stringify([])
-            ]);
-        }
-
-        // -----------------------------------------------------
-        // Pastikan data master awal ada tanpa menimpa data lama
-        // -----------------------------------------------------
-        const defaultPajak = [
-            { id: 1, jenis: 'Aki Basah', persentase: 20 },
-            { id: 2, jenis: 'Aki Kering', persentase: 11 },
-            { id: 3, jenis: 'Oli', persentase: 4 },
-            { id: 4, jenis: 'Air Radiator', persentase: 4 },
-            { id: 5, jenis: 'Minyak Rem', persentase: 4 },
-            { id: 6, jenis: 'Lainnya', persentase: 11 }
-        ];
-        for (const p of defaultPajak) {
-            await pool.query(`
-                INSERT IGNORE INTO master_pajak (id, jenis, persentase, kode_pajak, aktif, keterangan)
-                VALUES (?, ?, ?, ?, 1, '')
-            `, [p.id, p.jenis, p.persentase, '']);
-        }
-
-        const defaultUsers = [
-            { username:'owner', password:'owner123', role:'Owner', name:'Pemilik' },
-            { username:'admin', password:'admin123', role:'Admin', name:'Administrator' },
-            { username:'pagi', password:'pagi123', role:'Kasir', name:'Kasir Pagi' },
-            { username:'siang', password:'siang123', role:'Kasir', name:'Kasir Siang' }
-        ];
-        for (const u of defaultUsers) {
-            await pool.query(`
-                INSERT IGNORE INTO users (username, password, role, name, aktif, data)
-                VALUES (?, ?, ?, ?, 1, ?)
-            `, [u.username, u.password, u.role, u.name, JSON.stringify(u)]);
-        }
-
-        // Jika app_settings lama kosong, isi dari tabel master tanpa menghapus data.
-        const [mpCount] = await pool.query(`SELECT COUNT(*) AS n FROM master_pajak WHERE aktif = 1`);
-        const [uCount] = await pool.query(`SELECT COUNT(*) AS n FROM users WHERE aktif = 1`);
-        if (Number(mpCount[0].n) > 0) {
-            const [mpRows] = await pool.query(`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak ORDER BY id`);
-            await pool.query(`UPDATE app_settings SET master_pajak = ? WHERE id = 1`, [JSON.stringify(mpRows.map(x => ({jenis:x.jenis, persentase:Number(x.persentase), kode_pajak:x.kode_pajak || ''})))]);
-        }
-        if (Number(uCount[0].n) > 0) {
-            const [uRows] = await pool.query(`SELECT username, password, role, name FROM users WHERE aktif = 1 ORDER BY username`);
-            await pool.query(`UPDATE app_settings SET users = ? WHERE id = 1`, [JSON.stringify(uRows)]);
-        }
-
+        await initializeDatabase();
         res.json({
             success: true,
-            message: 'Database & tabel siap!'
+            message: 'Database & tabel siap! Migrasi kompatibilitas selesai tanpa menghapus data.'
         });
-
     } catch (error) {
-
         console.error('INIT ERROR:', error);
-
         res.status(500).json({
             success: false,
             error: error.message
@@ -4021,6 +3658,27 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ============================================================
+// DATABASE SCHEMA DIAGNOSTIC
+// ============================================================
+app.get('/api/db-schema', async (req, res) => {
+    try {
+        const [dbRows] = await pool.query('SELECT DATABASE() AS database_name');
+        const [rows] = await pool.query(`SHOW COLUMNS FROM \`spareparts\``);
+        const columns = rows.map(x => x.Field);
+
+        res.json({
+            success: true,
+            database: dbRows[0]?.database_name || null,
+            spareparts: columns,
+            pajak_status: columns.includes('pajak_status'),
+            kode_pajak: columns.includes('kode_pajak')
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================
 // SERVER
 // ============================================================
 
@@ -4133,6 +3791,193 @@ async function initializeDatabase() {
         name VARCHAR(255) DEFAULT '', action VARCHAR(255) DEFAULT '', details TEXT, data JSON NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+    // ========================================================
+    // MIGRASI OTOMATIS KOLOM DATABASE LAMA
+    // ========================================================
+    // CREATE TABLE IF NOT EXISTS hanya membuat tabel jika belum ada.
+    // Database lama bisa sudah memiliki tabel tetapi kolomnya belum lengkap.
+    // Bagian ini menambahkan kolom yang hilang SATU PER SATU, tanpa DROP,
+    // DELETE, TRUNCATE, atau mengubah isi data lama.
+    async function ensureColumn(table, column, definition) {
+        // Periksa langsung tabel aktif. Tidak mengubah atau menghapus data lama.
+        const [rows] = await pool.query(
+            `SHOW COLUMNS FROM \`${table}\` LIKE ?`,
+            [column]
+        );
+
+        if (rows.length === 0) {
+            try {
+                await pool.query(
+                    `ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`
+                );
+                console.log(`[MIGRASI] ${table}.${column} ditambahkan tanpa menghapus data`);
+            } catch (error) {
+                const message = String(error?.message || '');
+                if (!/duplicate column|duplicate field|already exists/i.test(message)) {
+                    throw new Error(`Migrasi ${table}.${column} gagal: ${message}`);
+                }
+            }
+        }
+
+        const [verify] = await pool.query(
+            `SHOW COLUMNS FROM \`${table}\` LIKE ?`,
+            [column]
+        );
+        if (verify.length === 0) {
+            throw new Error(`Kolom ${table}.${column} tidak tersedia setelah migrasi.`);
+        }
+    }
+
+    // Spareparts / master barang
+    const sparepartColumns = {
+        kode: "VARCHAR(50) NULL",
+        part_number: "VARCHAR(255) NULL",
+        part_numbers_alt: "TEXT NULL",
+        nama: "VARCHAR(500) NULL",
+        kategori: "VARCHAR(100) NULL",
+        merek: "VARCHAR(100) NULL",
+        satuan: "VARCHAR(50) NULL",
+        stok_min: "INT DEFAULT 0",
+        stok_awal: "INT DEFAULT 0",
+        harga_beli: "BIGINT DEFAULT 0",
+        harga_jual: "BIGINT DEFAULT 0",
+        satuan_alt: "VARCHAR(50) NULL",
+        isi_satuan_alt: "INT DEFAULT 0",
+        harga_jual_alt: "BIGINT DEFAULT 0",
+        pajak_status: "VARCHAR(20) NULL",
+        kode_pajak: "VARCHAR(50) NULL",
+        keterangan: "TEXT NULL"
+    };
+
+    // Transaksi penjualan / piutang / pembayaran
+    const transactionColumns = {
+        nomor_transaksi: "VARCHAR(50) NULL",
+        tanggal: "DATETIME NULL",
+        sparepart_id: "BIGINT NULL",
+        custom_item: "VARCHAR(500) NULL",
+        part_numbers_alt: "TEXT NULL",
+        merek: "VARCHAR(100) NULL",
+        jenis: "VARCHAR(20) NULL",
+        jumlah: "INT DEFAULT 0",
+        satuan: "VARCHAR(50) NULL",
+        jumlah_dasar: "INT DEFAULT 0",
+        harga_satuan: "BIGINT DEFAULT 0",
+        tujuan: "VARCHAR(255) NULL",
+        keterangan: "TEXT NULL",
+        source: "VARCHAR(50) NULL",
+        kasir: "VARCHAR(100) NULL",
+        status_bayar: "VARCHAR(20) NULL",
+        metode_bayar: "VARCHAR(50) NULL",
+        bayar_tunai: "BIGINT DEFAULT 0",
+        transfer_amount: "BIGINT DEFAULT 0",
+        kembalian_diberikan: "BIGINT DEFAULT 0",
+        diskon: "BIGINT DEFAULT 0",
+        tanggal_lunas: "DATETIME NULL"
+    };
+
+    const partnerColumns = {
+        nama: "VARCHAR(255) NULL", tipe: "VARCHAR(50) NULL",
+        telp: "VARCHAR(50) NULL", alamat: "TEXT NULL"
+    };
+
+    const cashColumns = {
+        tanggal: "DATETIME NULL", jumlah: "BIGINT DEFAULT 0",
+        keterangan: "TEXT NULL", kasir: "VARCHAR(100) NULL"
+    };
+
+    const taxColumns = {
+        trx_id: "BIGINT DEFAULT 0", tanggal: "DATETIME NULL",
+        nomor_transaksi: "VARCHAR(50) NULL", part_number: "VARCHAR(255) NULL",
+        nama: "VARCHAR(500) NULL", kategori: "VARCHAR(100) NULL",
+        merek: "VARCHAR(100) NULL", status_bayar: "VARCHAR(20) NULL",
+        pelanggan: "VARCHAR(255) NULL", jumlah: "INT DEFAULT 0",
+        satuan: "VARCHAR(50) NULL", harga_satuan: "BIGINT DEFAULT 0",
+        subtotal: "BIGINT DEFAULT 0", persentase_pajak: "DECIMAL(5,2) DEFAULT 0",
+        nilai_pajak: "BIGINT DEFAULT 0"
+    };
+
+    const returColumns = {
+        parent_invoice: "VARCHAR(50) NULL", tanggal: "DATETIME NULL",
+        kasir: "VARCHAR(100) NULL", pelanggan: "VARCHAR(255) NULL",
+        items: "JSON NULL", exchange_items: "JSON NULL"
+    };
+
+    const appSettingColumns = {
+        kas_awal: "BIGINT DEFAULT 0", active_shift_start: "BIGINT NULL",
+        master_pajak: "JSON NULL", users: "JSON NULL", shift_sessions: "JSON NULL",
+        master_bank: "JSON NULL", audit_trail: "JSON NULL"
+    };
+
+    const masterPajakColumns = {
+        jenis: "VARCHAR(100) DEFAULT ''", persentase: "DECIMAL(5,2) DEFAULT 0",
+        kode_pajak: "VARCHAR(50) DEFAULT ''", aktif: "TINYINT(1) DEFAULT 1",
+        keterangan: "VARCHAR(255) DEFAULT ''",
+        updated_at: "DATETIME NULL"
+    };
+
+    const masterBankColumns = {
+        nama: "VARCHAR(100) DEFAULT ''", rekening: "VARCHAR(100) DEFAULT ''",
+        atas_nama: "VARCHAR(255) DEFAULT ''", aktif: "TINYINT(1) DEFAULT 1",
+        keterangan: "VARCHAR(255) DEFAULT ''", updated_at: "DATETIME NULL"
+    };
+
+    const userColumns = {
+        password: "VARCHAR(255) DEFAULT ''", role: "VARCHAR(50) DEFAULT ''",
+        name: "VARCHAR(255) DEFAULT ''", aktif: "TINYINT(1) DEFAULT 1",
+        data: "JSON NULL", updated_at: "DATETIME NULL"
+    };
+
+    const shiftColumns = {
+        username: "VARCHAR(100) DEFAULT ''", name: "VARCHAR(255) DEFAULT ''",
+        shift: "VARCHAR(100) DEFAULT ''", start_time: "DATETIME NULL",
+        end_time: "DATETIME NULL", status: "VARCHAR(50) DEFAULT ''",
+        data: "JSON NULL", updated_at: "DATETIME NULL"
+    };
+
+    const auditColumns = {
+        timestamp: "BIGINT DEFAULT 0", username: "VARCHAR(100) DEFAULT ''",
+        name: "VARCHAR(255) DEFAULT ''", action: "VARCHAR(255) DEFAULT ''",
+        details: "TEXT NULL", data: "JSON NULL", created_at: "DATETIME NULL"
+    };
+
+    for (const [column, definition] of Object.entries(sparepartColumns)) await ensureColumn('spareparts', column, definition);
+    for (const [column, definition] of Object.entries(transactionColumns)) await ensureColumn('transactions', column, definition);
+    for (const [column, definition] of Object.entries(partnerColumns)) await ensureColumn('partners', column, definition);
+    for (const [column, definition] of Object.entries(cashColumns)) await ensureColumn('cash_expenses', column, definition);
+    for (const [column, definition] of Object.entries(cashColumns)) await ensureColumn('cash_inflows', column, definition);
+    for (const [column, definition] of Object.entries(taxColumns)) await ensureColumn('tax_records', column, definition);
+    for (const [column, definition] of Object.entries(returColumns)) await ensureColumn('retur_records', column, definition);
+    for (const [column, definition] of Object.entries(appSettingColumns)) await ensureColumn('app_settings', column, definition);
+    for (const [column, definition] of Object.entries(masterPajakColumns)) await ensureColumn('master_pajak', column, definition);
+    for (const [column, definition] of Object.entries(masterBankColumns)) await ensureColumn('master_bank', column, definition);
+    for (const [column, definition] of Object.entries(userColumns)) await ensureColumn('users', column, definition);
+    for (const [column, definition] of Object.entries(shiftColumns)) await ensureColumn('shift_sessions', column, definition);
+    for (const [column, definition] of Object.entries(auditColumns)) await ensureColumn('audit_trail', column, definition);
+
+    console.log('[MIGRASI] Pemeriksaan kolom database selesai tanpa menghapus data.');
+
+    // ========================================================
+    // VERIFIKASI STRUKTUR PAJAK SPAREPART
+    // ========================================================
+    // Aplikasi awal memakai dua kolom yang berbeda:
+    // pajak_status = status Pajak / Non Pajak
+    // kode_pajak   = kode pajak
+    // Keduanya dipertahankan; tidak ada rename/drop/reorder.
+    const [sparepartSchema] = await pool.query(`SHOW COLUMNS FROM \`spareparts\``);
+    const sparepartColumnNames = sparepartSchema.map(x => x.Field);
+    const hasPajakStatus = sparepartColumnNames.includes('pajak_status');
+    const hasKodePajak = sparepartColumnNames.includes('kode_pajak');
+
+    if (!hasPajakStatus || !hasKodePajak) {
+        throw new Error(
+            `Struktur pajak spareparts belum lengkap. Kolom yang tersedia: ${sparepartColumnNames.join(', ')}. ` +
+            `Wajib ada pajak_status dan kode_pajak.`
+        );
+    }
+
+    console.log('[PAJAK] spareparts.pajak_status tersedia.');
+    console.log('[PAJAK] spareparts.kode_pajak tersedia.');
 
     // ========================================================
     // Pastikan row settings utama tersedia
