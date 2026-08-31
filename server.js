@@ -3,91 +3,86 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>server.js - Muria Jaya Sakti</title>
+<title>server.js - Versi HTML untuk Salin</title>
 <style>
-* { box-sizing: border-box; }
-body {
-    margin: 0;
-    background: #0f1115;
-    color: #e6e9ef;
-    font-family: Arial, sans-serif;
-}
-header {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    padding: 14px 18px;
-    background: #171a21;
-    border-bottom: 1px solid #2a2f3a;
-}
-.title { font-size: 18px; font-weight: 700; }
-.sub { color: #9aa3b2; font-size: 12px; margin-top: 4px; }
-.toolbar {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 12px;
-}
-button, input {
-    border: 1px solid #343b49;
-    background: #202530;
-    color: #e6e9ef;
-    border-radius: 7px;
-    padding: 9px 12px;
-    font-size: 13px;
-}
-button { cursor: pointer; }
-button:hover { background: #2a3040; }
-input { min-width: 260px; flex: 1; }
-#code {
-    margin: 0;
-    padding: 20px;
-    overflow: auto;
-    min-height: calc(100vh - 130px);
-    font: 13px/1.55 Consolas, "Courier New", monospace;
-    white-space: pre;
-    tab-size: 4;
-    color: #d9dee8;
-}
-.status {
-    color: #8bd49c;
-    font-size: 12px;
-    align-self: center;
-}
-mark { background: #665d25; color: #fff; }
+    body {
+        margin: 0;
+        background: #111827;
+        color: #e5e7eb;
+        font-family: Consolas, "Courier New", monospace;
+    }
+    .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #1f2937;
+        border-bottom: 1px solid #374151;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+    .title {
+        font-family: Arial, sans-serif;
+        font-weight: 700;
+        color: #fff;
+    }
+    button {
+        border: 0;
+        border-radius: 8px;
+        padding: 9px 14px;
+        cursor: pointer;
+        background: #2563eb;
+        color: white;
+        font-weight: 700;
+    }
+    button:hover { background: #1d4ed8; }
+    textarea {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        min-height: calc(100vh - 58px);
+        resize: none;
+        border: 0;
+        outline: 0;
+        padding: 18px;
+        background: #0b1120;
+        color: #d1d5db;
+        font: 14px/1.55 Consolas, "Courier New", monospace;
+        tab-size: 4;
+        white-space: pre;
+        overflow: auto;
+    }
 </style>
 </head>
 <body>
-<header>
-    <div class="title">server.js — Muria Jaya Sakti</div>
-    <div class="sub">Viewer kode • 3,642 baris • Kode server.js tidak dijalankan oleh HTML ini</div>
-    <div class="toolbar">
-        <button onclick="copyAll()">Copy All</button>
-        <button onclick="selectAllCode()">Select All</button>
-        <button onclick="downloadJS()">Simpan sebagai server.js</button>
-        <input id="search" type="text" placeholder="Cari kode..." oninput="searchCode()">
-        <span id="status" class="status"></span>
-    </div>
-</header>
+<div class="topbar">
+    <div class="title">server_final_compatible.js — klik "Salin Semua" lalu Ctrl+C / tempel ke server.js</div>
+    <button onclick="copyCode()">Salin Semua</button>
+</div>
 
-<pre id="code">const express = require(&#x27;express&#x27;);
-const cors = require(&#x27;cors&#x27;);
-const bodyParser = require(&#x27;body-parser&#x27;);
-const mysql = require(&#x27;mysql2/promise&#x27;);
+<textarea id="code" spellcheck="false"></textarea>
+
+<script>
+const code = `const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const mysql = require('mysql2/promise');
 
 const app = express();
 
 app.use(cors());
-app.use(bodyParser.json({ limit: &#x27;50mb&#x27; }));
+app.use(bodyParser.json({ limit: '50mb' }));
 
 // ============================================================
 // TEST SERVER
 // ============================================================
 
-app.get(&#x27;/api/test&#x27;, (req, res) =&gt; {
+app.get('/api/test', (req, res) => {
     res.json({
-        status: &#x27;OK&#x27;,
-        message: &#x27;Server berhasil berjalan!&#x27;
+        status: 'OK',
+        message: 'Server berhasil berjalan!'
     });
 });
 
@@ -96,10 +91,10 @@ app.get(&#x27;/api/test&#x27;, (req, res) =&gt; {
 // ============================================================
 
 const pool = mysql.createPool({
-    host: &#x27;b7fgoctdsrijlfhczppz-mysql.services.clever-cloud.com&#x27;,
-    user: &#x27;uks2krvuygsynrco&#x27;,
-    password: &#x27;fWwkTbshbBANrTGMj8Aq&#x27;,
-    database: &#x27;b7fgoctdsrijlfhczppz&#x27;,
+    host: process.env.DB_HOST || 'b7fgoctdsrijlfhczppz-mysql.services.clever-cloud.com',
+    user: process.env.DB_USER || 'uks2krvuygsynrco',
+    password: process.env.DB_PASSWORD || 'fWwkTbshbBANrTGMj8Aq',
+    database: process.env.DB_NAME || 'b7fgoctdsrijlfhczppz',
     waitForConnections: true,
     connectionLimit: 4,
     queueLimit: 0
@@ -109,16 +104,16 @@ const pool = mysql.createPool({
 // ERROR HANDLER
 // ============================================================
 
-pool.on(&#x27;error&#x27;, (err) =&gt; {
-    console.error(&#x27;Database pool error:&#x27;, err);
+pool.on('error', (err) => {
+    console.error('Database pool error:', err);
 });
 
-process.on(&#x27;unhandledRejection&#x27;, (reason) =&gt; {
-    console.error(&#x27;Unhandled Rejection:&#x27;, reason);
+process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled Rejection:', reason);
 });
 
-process.on(&#x27;uncaughtException&#x27;, (error) =&gt; {
-    console.error(&#x27;Uncaught Exception:&#x27;, error);
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
 });
 
 // ============================================================
@@ -136,8 +131,8 @@ function invalidateDataCache() {
 }
 
 // Semua request selain GET dianggap mengubah data
-app.use((req, res, next) =&gt; {
-    if (req.method !== &#x27;GET&#x27;) {
+app.use((req, res, next) => {
+    if (req.method !== 'GET') {
         invalidateDataCache();
     }
 
@@ -168,7 +163,7 @@ function safeInteger(value, defaultValue = null) {
     return n;
 }
 
-function safeString(value, defaultValue = &#x27;&#x27;) {
+function safeString(value, defaultValue = '') {
     if (value === undefined || value === null) {
         return defaultValue;
     }
@@ -195,11 +190,11 @@ function safeJSON(value, defaultValue = []) {
         return defaultValue;
     }
 
-    if (Array.isArray(value) || typeof value === &#x27;object&#x27;) {
+    if (Array.isArray(value) || typeof value === 'object') {
         return value;
     }
 
-    if (typeof value === &#x27;string&#x27;) {
+    if (typeof value === 'string') {
         try {
             return JSON.parse(value);
         } catch (e) {
@@ -214,10 +209,10 @@ function safeJSON(value, defaultValue = []) {
 // 1. INISIALISASI TABEL
 // ============================================================
 
-app.get(&#x27;/api/init&#x27;, async (req, res) =&gt; {
+app.get('/api/init', async (req, res) => {
     try {
 
-        await pool.query(`
+        await pool.query(\`
             CREATE TABLE IF NOT EXISTS spareparts (
                 id BIGINT PRIMARY KEY,
                 kode VARCHAR(50),
@@ -240,9 +235,9 @@ app.get(&#x27;/api/init&#x27;, async (req, res) =&gt; {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        `);
+        \`);
 
-        await pool.query(`
+        await pool.query(\`
             CREATE TABLE IF NOT EXISTS transactions (
                 id BIGINT PRIMARY KEY,
                 nomor_transaksi VARCHAR(50),
@@ -270,9 +265,9 @@ app.get(&#x27;/api/init&#x27;, async (req, res) =&gt; {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        `);
+        \`);
 
-        await pool.query(`
+        await pool.query(\`
             CREATE TABLE IF NOT EXISTS partners (
                 id BIGINT PRIMARY KEY,
                 nama VARCHAR(255),
@@ -282,9 +277,9 @@ app.get(&#x27;/api/init&#x27;, async (req, res) =&gt; {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        `);
+        \`);
 
-        await pool.query(`
+        await pool.query(\`
             CREATE TABLE IF NOT EXISTS cash_expenses (
                 id BIGINT PRIMARY KEY,
                 tanggal DATETIME,
@@ -294,9 +289,9 @@ app.get(&#x27;/api/init&#x27;, async (req, res) =&gt; {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        `);
+        \`);
 
-        await pool.query(`
+        await pool.query(\`
             CREATE TABLE IF NOT EXISTS cash_inflows (
                 id BIGINT PRIMARY KEY,
                 tanggal DATETIME,
@@ -306,9 +301,9 @@ app.get(&#x27;/api/init&#x27;, async (req, res) =&gt; {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        `);
+        \`);
 
-        await pool.query(`
+        await pool.query(\`
             CREATE TABLE IF NOT EXISTS tax_records (
                 tax_id VARCHAR(100) PRIMARY KEY,
                 trx_id BIGINT,
@@ -329,9 +324,9 @@ app.get(&#x27;/api/init&#x27;, async (req, res) =&gt; {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        `);
+        \`);
 
-        await pool.query(`
+        await pool.query(\`
             CREATE TABLE IF NOT EXISTS retur_records (
                 id VARCHAR(50) PRIMARY KEY,
                 parent_invoice VARCHAR(50),
@@ -343,22 +338,22 @@ app.get(&#x27;/api/init&#x27;, async (req, res) =&gt; {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        `);
+        \`);
 
         // =====================================================
         // Pastikan exchange_items tersedia pada database lama
         // =====================================================
 
         try {
-            await pool.query(`
+            await pool.query(\`
                 ALTER TABLE retur_records
                 ADD COLUMN exchange_items JSON
-            `);
+            \`);
         } catch (e) {
             // Kolom kemungkinan sudah ada.
         }
 
-        await pool.query(`
+        await pool.query(\`
             CREATE TABLE IF NOT EXISTS app_settings (
                 id INT PRIMARY KEY DEFAULT 1,
                 kas_awal BIGINT DEFAULT 0,
@@ -369,27 +364,97 @@ app.get(&#x27;/api/init&#x27;, async (req, res) =&gt; {
             )
             ENGINE=InnoDB
             DEFAULT CHARSET=utf8mb4
-        `);
+        \`);
+
+        // =====================================================
+        // MASTER DATA TERPISAH - tetap kompatibel dengan JSON lama
+        // =====================================================
+        await pool.query(\`
+            CREATE TABLE IF NOT EXISTS master_pajak (
+                id BIGINT PRIMARY KEY,
+                jenis VARCHAR(100) NOT NULL,
+                persentase DECIMAL(5,2) NOT NULL DEFAULT 0,
+                kode_pajak VARCHAR(50) DEFAULT '',
+                aktif TINYINT(1) DEFAULT 1,
+                keterangan VARCHAR(255) DEFAULT '',
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        \`);
+
+        await pool.query(\`
+            CREATE TABLE IF NOT EXISTS master_bank (
+                id BIGINT PRIMARY KEY,
+                nama VARCHAR(100) NOT NULL,
+                rekening VARCHAR(100) DEFAULT '',
+                atas_nama VARCHAR(255) DEFAULT '',
+                aktif TINYINT(1) DEFAULT 1,
+                keterangan VARCHAR(255) DEFAULT '',
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        \`);
+
+        await pool.query(\`
+            CREATE TABLE IF NOT EXISTS users (
+                username VARCHAR(100) PRIMARY KEY,
+                password VARCHAR(255) NOT NULL,
+                role VARCHAR(50) NOT NULL,
+                name VARCHAR(255) DEFAULT '',
+                aktif TINYINT(1) DEFAULT 1,
+                data JSON NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        \`);
+
+        await pool.query(\`
+            CREATE TABLE IF NOT EXISTS shift_sessions (
+                id VARCHAR(100) PRIMARY KEY,
+                username VARCHAR(100) DEFAULT '',
+                name VARCHAR(255) DEFAULT '',
+                shift VARCHAR(100) DEFAULT '',
+                start_time DATETIME NULL,
+                end_time DATETIME NULL,
+                status VARCHAR(50) DEFAULT '',
+                data JSON NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        \`);
+
+        await pool.query(\`
+            CREATE TABLE IF NOT EXISTS audit_trail (
+                id VARCHAR(100) PRIMARY KEY,
+                timestamp BIGINT DEFAULT 0,
+                username VARCHAR(100) DEFAULT '',
+                name VARCHAR(255) DEFAULT '',
+                action VARCHAR(255) DEFAULT '',
+                details TEXT,
+                data JSON NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        \`);
+
+        // Kolom kompatibilitas pada app_settings. Data lama tidak dihapus.
+        try { await pool.query(\`ALTER TABLE app_settings ADD COLUMN master_bank JSON NULL\`); } catch (e) {}
+        try { await pool.query(\`ALTER TABLE app_settings ADD COLUMN audit_trail JSON NULL\`); } catch (e) {}
 
         // Pastikan kolom shift_sessions tersedia pada database lama.
         try {
-            await pool.query(`
+            await pool.query(\`
                 ALTER TABLE app_settings
                 ADD COLUMN shift_sessions JSON
-            `);
+            \`);
         } catch (e) {
             // Kolom sudah ada, lanjut.
         }
 
-        const [settings] = await pool.query(`
+        const [settings] = await pool.query(\`
             SELECT *
             FROM app_settings
             WHERE id = 1
-        `);
+        \`);
 
         if (settings.length === 0) {
 
-            await pool.query(`
+            await pool.query(\`
                 INSERT INTO app_settings
                 (
                     id,
@@ -397,77 +462,124 @@ app.get(&#x27;/api/init&#x27;, async (req, res) =&gt; {
                     active_shift_start,
                     master_pajak,
                     users,
-                    shift_sessions
+                    shift_sessions,
+                    master_bank,
+                    audit_trail
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
-            `, [
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            \`, [
                 1,
                 0,
                 Date.now(),
                 JSON.stringify([
                     {
-                        jenis: &#x27;Aki Basah&#x27;,
+                        jenis: 'Aki Basah',
                         persentase: 20
                     },
                     {
-                        jenis: &#x27;Aki Kering&#x27;,
+                        jenis: 'Aki Kering',
                         persentase: 11
                     },
                     {
-                        jenis: &#x27;Oli&#x27;,
+                        jenis: 'Oli',
                         persentase: 4
                     },
                     {
-                        jenis: &#x27;Air Radiator&#x27;,
+                        jenis: 'Air Radiator',
                         persentase: 4
                     },
                     {
-                        jenis: &#x27;Minyak Rem&#x27;,
+                        jenis: 'Minyak Rem',
                         persentase: 4
                     },
                     {
-                        jenis: &#x27;Lainnya&#x27;,
+                        jenis: 'Lainnya',
                         persentase: 11
                     }
                 ]),
                 JSON.stringify([
                     {
-                        username: &#x27;owner&#x27;,
-                        password: &#x27;owner123&#x27;,
-                        role: &#x27;Owner&#x27;,
-                        name: &#x27;Pemilik&#x27;
+                        username: 'owner',
+                        password: 'owner123',
+                        role: 'Owner',
+                        name: 'Pemilik'
                     },
                     {
-                        username: &#x27;admin&#x27;,
-                        password: &#x27;admin123&#x27;,
-                        role: &#x27;Admin&#x27;,
-                        name: &#x27;Administrator&#x27;
+                        username: 'admin',
+                        password: 'admin123',
+                        role: 'Admin',
+                        name: 'Administrator'
                     },
                     {
-                        username: &#x27;pagi&#x27;,
-                        password: &#x27;pagi123&#x27;,
-                        role: &#x27;Kasir&#x27;,
-                        name: &#x27;Kasir Pagi&#x27;
+                        username: 'pagi',
+                        password: 'pagi123',
+                        role: 'Kasir',
+                        name: 'Kasir Pagi'
                     },
                     {
-                        username: &#x27;siang&#x27;,
-                        password: &#x27;siang123&#x27;,
-                        role: &#x27;Kasir&#x27;,
-                        name: &#x27;Kasir Siang&#x27;
+                        username: 'siang',
+                        password: 'siang123',
+                        role: 'Kasir',
+                        name: 'Kasir Siang'
                     }
                 ]),
+                JSON.stringify([]),
+                JSON.stringify([]),
                 JSON.stringify([])
             ]);
         }
 
+        // -----------------------------------------------------
+        // Pastikan data master awal ada tanpa menimpa data lama
+        // -----------------------------------------------------
+        const defaultPajak = [
+            { id: 1, jenis: 'Aki Basah', persentase: 20 },
+            { id: 2, jenis: 'Aki Kering', persentase: 11 },
+            { id: 3, jenis: 'Oli', persentase: 4 },
+            { id: 4, jenis: 'Air Radiator', persentase: 4 },
+            { id: 5, jenis: 'Minyak Rem', persentase: 4 },
+            { id: 6, jenis: 'Lainnya', persentase: 11 }
+        ];
+        for (const p of defaultPajak) {
+            await pool.query(\`
+                INSERT IGNORE INTO master_pajak (id, jenis, persentase, kode_pajak, aktif, keterangan)
+                VALUES (?, ?, ?, ?, 1, '')
+            \`, [p.id, p.jenis, p.persentase, '']);
+        }
+
+        const defaultUsers = [
+            { username:'owner', password:'owner123', role:'Owner', name:'Pemilik' },
+            { username:'admin', password:'admin123', role:'Admin', name:'Administrator' },
+            { username:'pagi', password:'pagi123', role:'Kasir', name:'Kasir Pagi' },
+            { username:'siang', password:'siang123', role:'Kasir', name:'Kasir Siang' }
+        ];
+        for (const u of defaultUsers) {
+            await pool.query(\`
+                INSERT IGNORE INTO users (username, password, role, name, aktif, data)
+                VALUES (?, ?, ?, ?, 1, ?)
+            \`, [u.username, u.password, u.role, u.name, JSON.stringify(u)]);
+        }
+
+        // Jika app_settings lama kosong, isi dari tabel master tanpa menghapus data.
+        const [mpCount] = await pool.query(\`SELECT COUNT(*) AS n FROM master_pajak WHERE aktif = 1\`);
+        const [uCount] = await pool.query(\`SELECT COUNT(*) AS n FROM users WHERE aktif = 1\`);
+        if (Number(mpCount[0].n) > 0) {
+            const [mpRows] = await pool.query(\`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak ORDER BY id\`);
+            await pool.query(\`UPDATE app_settings SET master_pajak = ? WHERE id = 1\`, [JSON.stringify(mpRows.map(x => ({jenis:x.jenis, persentase:Number(x.persentase), kode_pajak:x.kode_pajak || ''})))]);
+        }
+        if (Number(uCount[0].n) > 0) {
+            const [uRows] = await pool.query(\`SELECT username, password, role, name FROM users WHERE aktif = 1 ORDER BY username\`);
+            await pool.query(\`UPDATE app_settings SET users = ? WHERE id = 1\`, [JSON.stringify(uRows)]);
+        }
+
         res.json({
             success: true,
-            message: &#x27;Database &amp; tabel siap!&#x27;
+            message: 'Database & tabel siap!'
         });
 
     } catch (error) {
 
-        console.error(&#x27;INIT ERROR:&#x27;, error);
+        console.error('INIT ERROR:', error);
 
         res.status(500).json({
             success: false,
@@ -480,7 +592,7 @@ app.get(&#x27;/api/init&#x27;, async (req, res) =&gt; {
 // 2. MIGRASI DATA
 // ============================================================
 
-app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
+app.post('/api/migrate', async (req, res) => {
 
     const oldData = req.body || {};
 
@@ -491,19 +603,19 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(oldData.spareparts) &amp;&amp;
-            oldData.spareparts.length &gt; 0
+            Array.isArray(oldData.spareparts) &&
+            oldData.spareparts.length > 0
         ) {
 
-            const values = oldData.spareparts.map(sp =&gt; [
+            const values = oldData.spareparts.map(sp => [
                 safeInteger(sp.id, Date.now()),
                 safeString(sp.kode),
                 safeString(sp.part_number),
                 safeString(sp.part_numbers_alt),
                 safeString(sp.nama),
-                safeString(sp.kategori, &#x27;Umum&#x27;),
+                safeString(sp.kategori, 'Umum'),
                 safeString(sp.merek),
-                safeString(sp.satuan, &#x27;Pcs&#x27;),
+                safeString(sp.satuan, 'Pcs'),
                 safeNumber(sp.stok_min),
                 safeNumber(sp.stok_awal),
                 safeNumber(sp.harga_beli),
@@ -511,14 +623,14 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                 safeString(sp.satuan_alt),
                 safeNumber(sp.isi_satuan_alt),
                 safeNumber(sp.harga_jual_alt),
-                safeString(sp.pajak_status, &#x27;Non Pajak&#x27;),
+                safeString(sp.pajak_status, 'Non Pajak'),
                 safeString(sp.kode_pajak),
                 safeString(sp.keterangan)
             ]);
 
-            for (let i = 0; i &lt; values.length; i += 500) {
+            for (let i = 0; i < values.length; i += 500) {
 
-                await pool.query(`
+                await pool.query(\`
                     INSERT IGNORE INTO spareparts
                     (
                         id,
@@ -541,7 +653,7 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                         keterangan
                     )
                     VALUES ?
-                `, [
+                \`, [
                     values.slice(i, i + 500)
                 ]);
             }
@@ -552,13 +664,13 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(oldData.transactions) &amp;&amp;
-            oldData.transactions.length &gt; 0
+            Array.isArray(oldData.transactions) &&
+            oldData.transactions.length > 0
         ) {
 
             const values = oldData.transactions
-                .filter(t =&gt; safeInteger(t.id) !== null)
-                .map(t =&gt; [
+                .filter(t => safeInteger(t.id) !== null)
+                .map(t => [
 
                     safeInteger(t.id),
 
@@ -609,9 +721,9 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                         : null
                 ]);
 
-            for (let i = 0; i &lt; values.length; i += 500) {
+            for (let i = 0; i < values.length; i += 500) {
 
-                await pool.query(`
+                await pool.query(\`
                     INSERT IGNORE INTO transactions
                     (
                         id,
@@ -639,7 +751,7 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                         tanggal_lunas
                     )
                     VALUES ?
-                `, [
+                \`, [
                     values.slice(i, i + 500)
                 ]);
             }
@@ -650,13 +762,13 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(oldData.partners) &amp;&amp;
-            oldData.partners.length &gt; 0
+            Array.isArray(oldData.partners) &&
+            oldData.partners.length > 0
         ) {
 
             const values = oldData.partners
-                .filter(p =&gt; safeInteger(p.id) !== null)
-                .map(p =&gt; [
+                .filter(p => safeInteger(p.id) !== null)
+                .map(p => [
                     safeInteger(p.id),
                     safeString(p.nama),
                     safeString(p.tipe),
@@ -664,9 +776,9 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                     safeString(p.alamat)
                 ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await pool.query(`
+                await pool.query(\`
                     INSERT IGNORE INTO partners
                     (
                         id,
@@ -676,7 +788,7 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                         alamat
                     )
                     VALUES ?
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -685,13 +797,13 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(oldData.cashExpenses) &amp;&amp;
-            oldData.cashExpenses.length &gt; 0
+            Array.isArray(oldData.cashExpenses) &&
+            oldData.cashExpenses.length > 0
         ) {
 
             const values = oldData.cashExpenses
-                .filter(e =&gt; safeInteger(e.id) !== null)
-                .map(e =&gt; [
+                .filter(e => safeInteger(e.id) !== null)
+                .map(e => [
                     safeInteger(e.id),
                     safeDate(e.tanggal),
                     safeNumber(e.jumlah),
@@ -699,9 +811,9 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                     safeString(e.kasir)
                 ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await pool.query(`
+                await pool.query(\`
                     INSERT IGNORE INTO cash_expenses
                     (
                         id,
@@ -711,7 +823,7 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                         kasir
                     )
                     VALUES ?
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -720,13 +832,13 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(oldData.cashInflows) &amp;&amp;
-            oldData.cashInflows.length &gt; 0
+            Array.isArray(oldData.cashInflows) &&
+            oldData.cashInflows.length > 0
         ) {
 
             const values = oldData.cashInflows
-                .filter(i =&gt; safeInteger(i.id) !== null)
-                .map(i =&gt; [
+                .filter(i => safeInteger(i.id) !== null)
+                .map(i => [
                     safeInteger(i.id),
                     safeDate(i.tanggal),
                     safeNumber(i.jumlah),
@@ -734,9 +846,9 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                     safeString(i.kasir)
                 ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await pool.query(`
+                await pool.query(\`
                     INSERT IGNORE INTO cash_inflows
                     (
                         id,
@@ -746,7 +858,7 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                         kasir
                     )
                     VALUES ?
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -755,13 +867,13 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(oldData.taxRecords) &amp;&amp;
-            oldData.taxRecords.length &gt; 0
+            Array.isArray(oldData.taxRecords) &&
+            oldData.taxRecords.length > 0
         ) {
 
             const values = oldData.taxRecords
-                .filter(t =&gt; t.tax_id)
-                .map(t =&gt; [
+                .filter(t => t.tax_id)
+                .map(t => [
                     safeString(t.tax_id),
                     safeInteger(t.trx_id, 0),
                     safeDate(t.tanggal),
@@ -780,9 +892,9 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                     safeNumber(t.nilai_pajak)
                 ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await pool.query(`
+                await pool.query(\`
                     INSERT IGNORE INTO tax_records
                     (
                         tax_id,
@@ -803,7 +915,7 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                         nilai_pajak
                     )
                     VALUES ?
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -816,7 +928,7 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
             oldData.users
         ) {
 
-            await pool.query(`
+            await pool.query(\`
                 UPDATE app_settings
                 SET
                     kas_awal = ?,
@@ -825,7 +937,7 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
                     users = ?,
                     shift_sessions = ?
                 WHERE id = 1
-            `, [
+            \`, [
                 safeNumber(oldData.kasAwal),
                 oldData.activeShiftStart || Date.now(),
                 JSON.stringify(oldData.masterPajak || []),
@@ -838,12 +950,12 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
 
         res.json({
             success: true,
-            message: &#x27;Migrasi data lama berhasil!&#x27;
+            message: 'Migrasi data lama berhasil!'
         });
 
     } catch (error) {
 
-        console.error(&#x27;MIGRATE ERROR:&#x27;, error);
+        console.error('MIGRATE ERROR:', error);
 
         res.status(500).json({
             success: false,
@@ -856,13 +968,13 @@ app.post(&#x27;/api/migrate&#x27;, async (req, res) =&gt; {
 // 3. GET ALL DATA
 // ============================================================
 
-app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
+app.get('/api/data', async (req, res) => {
 
     const now = Date.now();
 
     if (
-        dataCache &amp;&amp;
-        (now - dataCacheTime) &lt; DATA_CACHE_TTL
+        dataCache &&
+        (now - dataCacheTime) < DATA_CACHE_TTL
     ) {
         return res.json(dataCache);
     }
@@ -873,66 +985,72 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
 
         connection = await pool.getConnection();
 
-        const [spareparts] = await connection.query(`
+        const [spareparts] = await connection.query(\`
             SELECT *
             FROM spareparts
-        `);
+        \`);
 
-        const [transactions] = await connection.query(`
+        const [transactions] = await connection.query(\`
             SELECT *
             FROM transactions
-        `);
+        \`);
 
-        const [partners] = await connection.query(`
+        const [partners] = await connection.query(\`
             SELECT *
             FROM partners
-        `);
+        \`);
 
-        const [cashExpenses] = await connection.query(`
+        const [cashExpenses] = await connection.query(\`
             SELECT *
             FROM cash_expenses
-        `);
+        \`);
 
-        const [cashInflows] = await connection.query(`
+        const [cashInflows] = await connection.query(\`
             SELECT *
             FROM cash_inflows
-        `);
+        \`);
 
-        const [taxRecords] = await connection.query(`
+        const [taxRecords] = await connection.query(\`
             SELECT *
             FROM tax_records
-        `);
+        \`);
+
+        const [masterPajakRows] = await connection.query(\`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak WHERE aktif = 1 ORDER BY id\`);
+        const [masterBankRows] = await connection.query(\`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank WHERE aktif = 1 ORDER BY id\`);
+        const [userRows] = await connection.query(\`SELECT username, password, role, name, aktif, data FROM users WHERE aktif = 1 ORDER BY username\`);
+        const [shiftRows] = await connection.query(\`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC\`);
+        const [auditRows] = await connection.query(\`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000\`);
 
         let returs = [];
 
         try {
 
-            const [returResult] = await connection.query(`
+            const [returResult] = await connection.query(\`
                 SELECT *
                 FROM retur_records
-            `);
+            \`);
 
             returs = returResult;
 
         } catch (e) {
 
             console.error(
-                &#x27;Gagal membaca retur_records:&#x27;,
+                'Gagal membaca retur_records:',
                 e.message
             );
         }
 
-        const [settings] = await connection.query(`
+        const [settings] = await connection.query(\`
             SELECT *
             FROM app_settings
             WHERE id = 1
-        `);
+        \`);
 
         // ----------------------------------------------------
         // DATE CONVERSION
         // ----------------------------------------------------
 
-        transactions.forEach(t =&gt; {
+        transactions.forEach(t => {
 
             if (t.tanggal instanceof Date) {
                 t.tanggal = t.tanggal.toISOString();
@@ -944,7 +1062,7 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
             }
         });
 
-        cashExpenses.forEach(e =&gt; {
+        cashExpenses.forEach(e => {
 
             if (e.tanggal instanceof Date) {
                 e.tanggal =
@@ -952,7 +1070,7 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
             }
         });
 
-        cashInflows.forEach(i =&gt; {
+        cashInflows.forEach(i => {
 
             if (i.tanggal instanceof Date) {
                 i.tanggal =
@@ -960,7 +1078,7 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
             }
         });
 
-        taxRecords.forEach(t =&gt; {
+        taxRecords.forEach(t => {
 
             if (t.tanggal instanceof Date) {
                 t.tanggal =
@@ -972,7 +1090,7 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
         // RETUR
         // ----------------------------------------------------
 
-        const returRecords = returs.map(r =&gt; {
+        const returRecords = returs.map(r => {
 
             let items = safeJSON(r.items, []);
 
@@ -1023,7 +1141,7 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
         let masterPajak =
             settings[0]?.master_pajak || [];
 
-        if (typeof masterPajak === &#x27;string&#x27;) {
+        if (typeof masterPajak === 'string') {
 
             try {
                 masterPajak =
@@ -1036,7 +1154,7 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
         let users =
             settings[0]?.users || [];
 
-        if (typeof users === &#x27;string&#x27;) {
+        if (typeof users === 'string') {
 
             try {
                 users =
@@ -1046,10 +1164,49 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
             }
         }
 
-        let shiftSessions =
-            settings[0]?.shift_sessions || [];
+        let masterBank = masterBankRows.map(b => ({
+            id: b.id,
+            nama: b.nama,
+            rekening: b.rekening || '',
+            atas_nama: b.atas_nama || '',
+            aktif: Number(b.aktif) === 1,
+            keterangan: b.keterangan || ''
+        }));
 
-        if (typeof shiftSessions === &#x27;string&#x27;) {
+        // Jika tabel master_bank masih kosong, pertahankan data JSON lama.
+        if (masterBank.length === 0) {
+            masterBank = safeJSON(settings[0]?.master_bank, []);
+            if (!Array.isArray(masterBank)) masterBank = [];
+        }
+
+        // Gunakan tabel users jika sudah ada, fallback ke JSON lama.
+        if (userRows.length > 0) {
+            users = userRows.map(u => {
+                const extra = safeJSON(u.data, {});
+                return { ...extra, username:u.username, password:u.password, role:u.role, name:u.name, aktif:Number(u.aktif) === 1 };
+            });
+        }
+
+        let shiftSessions =
+            shiftRows.map(r => {
+                const extra = safeJSON(r.data, {});
+                return { ...extra, id:r.id, username:r.username, name:r.name, shift:r.shift, start_time:r.start_time, end_time:r.end_time, status:r.status };
+            });
+        if (shiftSessions.length === 0) {
+            shiftSessions = safeJSON(settings[0]?.shift_sessions, []);
+            if (!Array.isArray(shiftSessions)) shiftSessions = [];
+        }
+
+        let auditTrail = auditRows.map(r => {
+            const extra = safeJSON(r.data, {});
+            return { ...extra, id:r.id, timestamp:Number(r.timestamp)||0, username:r.username, name:r.name, action:r.action, details:r.details };
+        });
+        if (auditTrail.length === 0) {
+            auditTrail = safeJSON(settings[0]?.audit_trail, []);
+            if (!Array.isArray(auditTrail)) auditTrail = [];
+        }
+
+        if (typeof shiftSessions === 'string') {
             try {
                 shiftSessions = JSON.parse(shiftSessions);
             } catch (e) {
@@ -1086,9 +1243,13 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
 
             masterPajak,
 
+            masterBank,
+
             users,
 
-            shiftSessions
+            shiftSessions,
+
+            auditTrail
         };
 
         dataCache = result;
@@ -1099,7 +1260,7 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
     } catch (error) {
 
         console.error(
-            &#x27;Error GET DATA:&#x27;,
+            'Error GET DATA:',
             error
         );
 
@@ -1108,7 +1269,7 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
         if (dataCache) {
 
             console.log(
-                &#x27;Mengembalikan data cache karena error database&#x27;
+                'Mengembalikan data cache karena error database'
             );
 
             return res.json(dataCache);
@@ -1131,12 +1292,12 @@ app.get(&#x27;/api/data&#x27;, async (req, res) =&gt; {
 // 4. SPAREPART
 // ============================================================
 
-app.post(&#x27;/api/sparepart&#x27;, async (req, res) =&gt; {
+app.post('/api/sparepart', async (req, res) => {
 
     try {
 
         await pool.query(
-            &#x27;INSERT INTO spareparts SET ?&#x27;,
+            'INSERT INTO spareparts SET ?',
             req.body
         );
 
@@ -1144,13 +1305,13 @@ app.post(&#x27;/api/sparepart&#x27;, async (req, res) =&gt; {
 
         res.json({
             success: true,
-            message: &#x27;Sparepart disimpan&#x27;
+            message: 'Sparepart disimpan'
         });
 
     } catch (error) {
 
         console.error(
-            &#x27;Error sparepart:&#x27;,
+            'Error sparepart:',
             error
         );
 
@@ -1161,28 +1322,28 @@ app.post(&#x27;/api/sparepart&#x27;, async (req, res) =&gt; {
     }
 });
 
-app.post(&#x27;/api/sparepart/bulk&#x27;, async (req, res) =&gt; {
+app.post('/api/sparepart/bulk', async (req, res) => {
 
     const { items } = req.body;
 
     try {
 
         if (
-            Array.isArray(items) &amp;&amp;
-            items.length &gt; 0
+            Array.isArray(items) &&
+            items.length > 0
         ) {
 
             const values = items
-                .filter(sp =&gt; safeInteger(sp.id) !== null)
-                .map(sp =&gt; [
+                .filter(sp => safeInteger(sp.id) !== null)
+                .map(sp => [
                     safeInteger(sp.id),
                     safeString(sp.kode),
                     safeString(sp.part_number),
                     safeString(sp.part_numbers_alt),
                     safeString(sp.nama),
-                    safeString(sp.kategori, &#x27;Umum&#x27;),
+                    safeString(sp.kategori, 'Umum'),
                     safeString(sp.merek),
-                    safeString(sp.satuan, &#x27;Pcs&#x27;),
+                    safeString(sp.satuan, 'Pcs'),
                     safeNumber(sp.stok_min),
                     safeNumber(sp.stok_awal),
                     safeNumber(sp.harga_beli),
@@ -1190,14 +1351,14 @@ app.post(&#x27;/api/sparepart/bulk&#x27;, async (req, res) =&gt; {
                     safeString(sp.satuan_alt),
                     safeNumber(sp.isi_satuan_alt),
                     safeNumber(sp.harga_jual_alt),
-                    safeString(sp.pajak_status, &#x27;Non Pajak&#x27;),
+                    safeString(sp.pajak_status, 'Non Pajak'),
                     safeString(sp.kode_pajak),
                     safeString(sp.keterangan)
                 ]);
 
-            for (let i = 0; i &lt; values.length; i += 500) {
+            for (let i = 0; i < values.length; i += 500) {
 
-                await pool.query(`
+                await pool.query(\`
                     INSERT IGNORE INTO spareparts
                     (
                         id,
@@ -1220,7 +1381,7 @@ app.post(&#x27;/api/sparepart/bulk&#x27;, async (req, res) =&gt; {
                         keterangan
                     )
                     VALUES ?
-                `, [
+                \`, [
                     values.slice(i, i + 500)
                 ]);
             }
@@ -1230,7 +1391,7 @@ app.post(&#x27;/api/sparepart/bulk&#x27;, async (req, res) =&gt; {
 
         res.json({
             success: true,
-            message: &#x27;Sparepart bulk disimpan&#x27;
+            message: 'Sparepart bulk disimpan'
         });
 
     } catch (error) {
@@ -1242,7 +1403,7 @@ app.post(&#x27;/api/sparepart/bulk&#x27;, async (req, res) =&gt; {
     }
 });
 
-app.put(&#x27;/api/sparepart/:id&#x27;, async (req, res) =&gt; {
+app.put('/api/sparepart/:id', async (req, res) => {
 
     const id = safeInteger(req.params.id);
 
@@ -1250,14 +1411,14 @@ app.put(&#x27;/api/sparepart/:id&#x27;, async (req, res) =&gt; {
 
         return res.status(400).json({
             success: false,
-            error: &#x27;ID sparepart tidak valid&#x27;
+            error: 'ID sparepart tidak valid'
         });
     }
 
     try {
 
         await pool.query(
-            &#x27;UPDATE spareparts SET ? WHERE id = ?&#x27;,
+            'UPDATE spareparts SET ? WHERE id = ?',
             [
                 req.body,
                 id
@@ -1268,7 +1429,7 @@ app.put(&#x27;/api/sparepart/:id&#x27;, async (req, res) =&gt; {
 
         res.json({
             success: true,
-            message: &#x27;Sparepart diupdate&#x27;
+            message: 'Sparepart diupdate'
         });
 
     } catch (error) {
@@ -1280,7 +1441,7 @@ app.put(&#x27;/api/sparepart/:id&#x27;, async (req, res) =&gt; {
     }
 });
 
-app.delete(&#x27;/api/sparepart/:id&#x27;, async (req, res) =&gt; {
+app.delete('/api/sparepart/:id', async (req, res) => {
 
     const id = safeInteger(req.params.id);
 
@@ -1288,19 +1449,19 @@ app.delete(&#x27;/api/sparepart/:id&#x27;, async (req, res) =&gt; {
 
         return res.status(400).json({
             success: false,
-            error: &#x27;ID sparepart tidak valid&#x27;
+            error: 'ID sparepart tidak valid'
         });
     }
 
     try {
 
         await pool.query(
-            &#x27;DELETE FROM spareparts WHERE id = ?&#x27;,
+            'DELETE FROM spareparts WHERE id = ?',
             [id]
         );
 
         await pool.query(
-            &#x27;DELETE FROM transactions WHERE sparepart_id = ?&#x27;,
+            'DELETE FROM transactions WHERE sparepart_id = ?',
             [id]
         );
 
@@ -1308,13 +1469,13 @@ app.delete(&#x27;/api/sparepart/:id&#x27;, async (req, res) =&gt; {
 
         res.json({
             success: true,
-            message: &#x27;Sparepart dihapus&#x27;
+            message: 'Sparepart dihapus'
         });
 
     } catch (error) {
 
         console.error(
-            &#x27;Error hapus sparepart:&#x27;,
+            'Error hapus sparepart:',
             error
         );
 
@@ -1329,7 +1490,7 @@ app.delete(&#x27;/api/sparepart/:id&#x27;, async (req, res) =&gt; {
 // 5. TRANSAKSI
 // ============================================================
 
-app.post(&#x27;/api/transactions&#x27;, async (req, res) =&gt; {
+app.post('/api/transactions', async (req, res) => {
 
     const {
         transactions,
@@ -1343,13 +1504,13 @@ app.post(&#x27;/api/transactions&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(transactions) &amp;&amp;
-            transactions.length &gt; 0
+            Array.isArray(transactions) &&
+            transactions.length > 0
         ) {
 
             const values = transactions
-                .filter(t =&gt; safeInteger(t.id) !== null)
-                .map(t =&gt; [
+                .filter(t => safeInteger(t.id) !== null)
+                .map(t => [
 
                     safeInteger(t.id),
 
@@ -1400,9 +1561,9 @@ app.post(&#x27;/api/transactions&#x27;, async (req, res) =&gt; {
                         : null
                 ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await pool.query(`
+                await pool.query(\`
                     INSERT IGNORE INTO transactions
                     (
                         id,
@@ -1430,7 +1591,7 @@ app.post(&#x27;/api/transactions&#x27;, async (req, res) =&gt; {
                         tanggal_lunas
                     )
                     VALUES ?
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -1439,13 +1600,13 @@ app.post(&#x27;/api/transactions&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(taxRecords) &amp;&amp;
-            taxRecords.length &gt; 0
+            Array.isArray(taxRecords) &&
+            taxRecords.length > 0
         ) {
 
             const values = taxRecords
-                .filter(t =&gt; t &amp;&amp; t.tax_id)
-                .map(t =&gt; [
+                .filter(t => t && t.tax_id)
+                .map(t => [
 
                     safeString(t.tax_id),
 
@@ -1480,9 +1641,9 @@ app.post(&#x27;/api/transactions&#x27;, async (req, res) =&gt; {
                     safeNumber(t.nilai_pajak)
                 ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await pool.query(`
+                await pool.query(\`
                     INSERT IGNORE INTO tax_records
                     (
                         tax_id,
@@ -1503,7 +1664,7 @@ app.post(&#x27;/api/transactions&#x27;, async (req, res) =&gt; {
                         nilai_pajak
                     )
                     VALUES ?
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -1511,13 +1672,13 @@ app.post(&#x27;/api/transactions&#x27;, async (req, res) =&gt; {
 
         res.json({
             success: true,
-            message: &#x27;Transaksi disimpan&#x27;
+            message: 'Transaksi disimpan'
         });
 
     } catch (error) {
 
         console.error(
-            &#x27;Error transaksi:&#x27;,
+            'Error transaksi:',
             error
         );
 
@@ -1532,14 +1693,14 @@ app.post(&#x27;/api/transactions&#x27;, async (req, res) =&gt; {
 // SIMPAN RETUR
 // Kompatibel dengan beberapa format request dari frontend
 // ============================================================
-app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
+app.post('/api/transaction/retur', async (req, res) => {
     const body = req.body || {};
 
-    console.log(&#x27;==========================================&#x27;);
-    console.log(&#x27;[RETUR] Request diterima&#x27;);
-    console.log(&#x27;[RETUR] Body keys:&#x27;, Object.keys(body));
-    console.log(&#x27;[RETUR] Body:&#x27;, JSON.stringify(body, null, 2));
-    console.log(&#x27;==========================================&#x27;);
+    console.log('==========================================');
+    console.log('[RETUR] Request diterima');
+    console.log('[RETUR] Body keys:', Object.keys(body));
+    console.log('[RETUR] Body:', JSON.stringify(body, null, 2));
+    console.log('==========================================');
 
     /*
      * Frontend bisa saja mengirim:
@@ -1561,8 +1722,8 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
      * atau langsung:
      *
      * {
-     *   id: &quot;...&quot;,
-     *   parent_invoice: &quot;...&quot;,
+     *   id: "...",
+     *   parent_invoice: "...",
      *   items: [...]
      * }
      */
@@ -1585,7 +1746,7 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
         [];
 
     // Jika frontend langsung mengirim object retur tanpa wrapper
-    if (!returRecord &amp;&amp; body.id &amp;&amp; (body.parent_invoice || body.parentInvoice)) {
+    if (!returRecord && body.id && (body.parent_invoice || body.parentInvoice)) {
         returRecord = body;
     }
 
@@ -1601,13 +1762,13 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
     // ============================================================
     // VALIDASI RETUR
     // ============================================================
-    if (!returRecord || typeof returRecord !== &#x27;object&#x27;) {
-        console.error(&#x27;[RETUR] returRecord tidak ditemukan.&#x27;);
-        console.error(&#x27;[RETUR] Body yang diterima:&#x27;, body);
+    if (!returRecord || typeof returRecord !== 'object') {
+        console.error('[RETUR] returRecord tidak ditemukan.');
+        console.error('[RETUR] Body yang diterima:', body);
 
         return res.status(400).json({
             success: false,
-            error: &#x27;Data retur tidak valid: returRecord tidak ditemukan&#x27;,
+            error: 'Data retur tidak valid: returRecord tidak ditemukan',
             receivedKeys: Object.keys(body)
         });
     }
@@ -1636,13 +1797,13 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
         returRecord.kasir ||
         returRecord.user ||
         returRecord.operator ||
-        &#x27;&#x27;;
+        '';
 
     const pelanggan =
         returRecord.pelanggan ||
         returRecord.customer ||
         returRecord.nama_pelanggan ||
-        &#x27;&#x27;;
+        '';
 
     const items =
         returRecord.items ||
@@ -1663,14 +1824,14 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
     if (!returId) {
         return res.status(400).json({
             success: false,
-            error: &#x27;Data retur tidak valid: ID retur tidak ditemukan&#x27;
+            error: 'Data retur tidak valid: ID retur tidak ditemukan'
         });
     }
 
     if (!parentInvoice) {
         return res.status(400).json({
             success: false,
-            error: &#x27;Data retur tidak valid: nomor invoice tidak ditemukan&#x27;
+            error: 'Data retur tidak valid: nomor invoice tidak ditemukan'
         });
     }
 
@@ -1694,7 +1855,7 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
         // SIMPAN RETUR RECORD
         // ========================================================
         await conn.query(
-            `
+            \`
             INSERT INTO retur_records
             (
                 id,
@@ -1713,7 +1874,7 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
                 pelanggan = VALUES(pelanggan),
                 items = VALUES(items),
                 exchange_items = VALUES(exchange_items)
-            `,
+            \`,
             [
                 String(returId),
                 String(parentInvoice),
@@ -1728,11 +1889,11 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
         // ========================================================
         // SIMPAN TRANSAKSI RETUR / TRANSAKSI TAMBAHAN
         // ========================================================
-        if (transactions.length &gt; 0) {
+        if (transactions.length > 0) {
 
             const values = transactions
-                .filter(t =&gt; t &amp;&amp; t.id != null)
-                .map(t =&gt; [
+                .filter(t => t && t.id != null)
+                .map(t => [
                     parseInt(t.id),
 
                     t.nomor_transaksi ||
@@ -1751,31 +1912,31 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
 
                     t.part_numbers_alt ||
                     t.partNumbersAlt ||
-                    &#x27;&#x27;,
+                    '',
 
-                    t.merek || &#x27;&#x27;,
+                    t.merek || '',
 
-                    t.jenis || &#x27;Keluar&#x27;,
+                    t.jenis || 'Keluar',
 
                     Number(t.jumlah) || 0,
 
-                    t.satuan || &#x27;Pcs&#x27;,
+                    t.satuan || 'Pcs',
 
                     Number(t.jumlah_dasar ?? t.jumlahDasar) || 0,
 
                     Number(t.harga_satuan ?? t.hargaSatuan) || 0,
 
-                    t.tujuan || &#x27;&#x27;,
+                    t.tujuan || '',
 
-                    t.keterangan || &#x27;&#x27;,
+                    t.keterangan || '',
 
-                    t.source || &#x27;retur&#x27;,
+                    t.source || 'retur',
 
-                    t.kasir || kasir || &#x27;&#x27;,
+                    t.kasir || kasir || '',
 
-                    t.status_bayar || &#x27;Lunas&#x27;,
+                    t.status_bayar || 'Lunas',
 
-                    t.metode_bayar || &#x27;&#x27;,
+                    t.metode_bayar || '',
 
                     Number(t.bayar_tunai) || 0,
 
@@ -1788,9 +1949,9 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
                     t.tanggal_lunas || null
                 ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
                 await conn.query(
-                    `
+                    \`
                     INSERT IGNORE INTO transactions
                     (
                         id,
@@ -1818,7 +1979,7 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
                         tanggal_lunas
                     )
                     VALUES ?
-                    `,
+                    \`,
                     [values]
                 );
             }
@@ -1827,11 +1988,11 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
         // ========================================================
         // SIMPAN TAX RECORD
         // ========================================================
-        if (taxRecords.length &gt; 0) {
+        if (taxRecords.length > 0) {
 
             const values = taxRecords
-                .filter(t =&gt; t &amp;&amp; t.tax_id != null)
-                .map(t =&gt; [
+                .filter(t => t && t.tax_id != null)
+                .map(t => [
                     String(t.tax_id),
 
                     parseInt(
@@ -1848,26 +2009,26 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
 
                     t.part_number ||
                     t.partNumber ||
-                    &#x27;&#x27;,
+                    '',
 
-                    t.nama || &#x27;&#x27;,
+                    t.nama || '',
 
-                    t.kategori || &#x27;&#x27;,
+                    t.kategori || '',
 
-                    t.merek || &#x27;&#x27;,
+                    t.merek || '',
 
                     t.status_bayar ||
                     t.statusBayar ||
-                    &#x27;Lunas&#x27;,
+                    'Lunas',
 
                     t.pelanggan ||
                     t.customer ||
                     pelanggan ||
-                    &#x27;&#x27;,
+                    '',
 
                     Number(t.jumlah) || 0,
 
-                    t.satuan || &#x27;Pcs&#x27;,
+                    t.satuan || 'Pcs',
 
                     Number(
                         t.harga_satuan ??
@@ -1887,9 +2048,9 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
                     ) || 0
                 ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
                 await conn.query(
-                    `
+                    \`
                     INSERT IGNORE INTO tax_records
                     (
                         tax_id,
@@ -1910,7 +2071,7 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
                         nilai_pajak
                     )
                     VALUES ?
-                    `,
+                    \`,
                     [values]
                 );
             }
@@ -1920,7 +2081,7 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
         // VERIFIKASI RETUR
         // ========================================================
         const [verify] = await conn.query(
-            `
+            \`
             SELECT
                 id,
                 parent_invoice,
@@ -1928,7 +2089,7 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
             FROM retur_records
             WHERE id = ?
             LIMIT 1
-            `,
+            \`,
             [String(returId)]
         );
 
@@ -1937,7 +2098,7 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
 
             return res.status(500).json({
                 success: false,
-                error: &#x27;Verifikasi gagal: data retur tidak tersimpan di database&#x27;
+                error: 'Verifikasi gagal: data retur tidak tersimpan di database'
             });
         }
 
@@ -1949,15 +2110,15 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
         invalidateDataCache();
 
         console.log(
-            &#x27;[RETUR] Berhasil disimpan:&#x27;,
+            '[RETUR] Berhasil disimpan:',
             String(returId),
-            &#x27;Invoice:&#x27;,
+            'Invoice:',
             String(parentInvoice)
         );
 
         return res.json({
             success: true,
-            message: &#x27;Retur berhasil disimpan ke server&#x27;,
+            message: 'Retur berhasil disimpan ke server',
             returId: String(returId),
             parentInvoice: String(parentInvoice)
         });
@@ -1969,20 +2130,20 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
                 await conn.rollback();
             } catch (rollbackError) {
                 console.error(
-                    &#x27;[RETUR] Rollback error:&#x27;,
+                    '[RETUR] Rollback error:',
                     rollbackError
                 );
             }
         }
 
         console.error(
-            &#x27;[RETUR] ERROR:&#x27;,
+            '[RETUR] ERROR:',
             error
         );
 
         return res.status(500).json({
             success: false,
-            error: &#x27;Gagal menyimpan retur: &#x27; + error.message
+            error: 'Gagal menyimpan retur: ' + error.message
         });
 
     } finally {
@@ -1996,7 +2157,7 @@ app.post(&#x27;/api/transaction/retur&#x27;, async (req, res) =&gt; {
 // 7. HAPUS INVOICE
 // ============================================================
 
-app.post(&#x27;/api/transaction/delete-invoice&#x27;, async (req, res) =&gt; {
+app.post('/api/transaction/delete-invoice', async (req, res) => {
 
     const trxId =
         req.body?.trxId;
@@ -2004,67 +2165,67 @@ app.post(&#x27;/api/transaction/delete-invoice&#x27;, async (req, res) =&gt; {
     if (
         trxId === undefined ||
         trxId === null ||
-        String(trxId).trim() === &#x27;&#x27;
+        String(trxId).trim() === ''
     ) {
 
         return res.status(400).json({
             success: false,
-            error: &#x27;Nomor invoice tidak valid&#x27;
+            error: 'Nomor invoice tidak valid'
         });
     }
 
     try {
 
         const [returs] =
-            await pool.query(`
+            await pool.query(\`
                 SELECT id
                 FROM retur_records
                 WHERE parent_invoice = ?
-            `, [String(trxId)]);
+            \`, [String(trxId)]);
 
-        await pool.query(`
+        await pool.query(\`
             DELETE FROM transactions
             WHERE nomor_transaksi = ?
-        `, [String(trxId)]);
+        \`, [String(trxId)]);
 
-        await pool.query(`
+        await pool.query(\`
             DELETE FROM tax_records
             WHERE nomor_transaksi = ?
-        `, [String(trxId)]);
+        \`, [String(trxId)]);
 
-        if (returs.length &gt; 0) {
+        if (returs.length > 0) {
 
             for (const r of returs) {
 
-                await pool.query(`
+                await pool.query(\`
                     DELETE FROM transactions
                     WHERE nomor_transaksi = ?
-                `, [String(r.id)]);
+                \`, [String(r.id)]);
 
-                await pool.query(`
+                await pool.query(\`
                     DELETE FROM tax_records
                     WHERE nomor_transaksi = ?
-                `, [String(r.id)]);
+                \`, [String(r.id)]);
             }
         }
 
-        await pool.query(`
+        await pool.query(\`
             DELETE FROM retur_records
             WHERE parent_invoice = ?
-        `, [String(trxId)]);
+        \`, [String(trxId)]);
 
         invalidateDataCache();
 
         res.json({
             success: true,
             message:
-                &#x27;Invoice &amp; retur berhasil dihapus dari server&#x27;
+                'Invoice & retur berhasil dihapus dari server'
         });
 
     } catch (error) {
 
         console.error(
-            &#x27;Error hapus invoice:&#x27;,
+            'Error hapus invoice:',
             error
         );
 
@@ -2079,7 +2240,7 @@ app.post(&#x27;/api/transaction/delete-invoice&#x27;, async (req, res) =&gt; {
 // 8. HAPUS RETUR
 // ============================================================
 
-app.post(&#x27;/api/transaction/delete-retur&#x27;, async (req, res) =&gt; {
+app.post('/api/transaction/delete-retur', async (req, res) => {
 
     const returId =
         req.body?.returId;
@@ -2087,44 +2248,44 @@ app.post(&#x27;/api/transaction/delete-retur&#x27;, async (req, res) =&gt; {
     if (
         returId === undefined ||
         returId === null ||
-        String(returId).trim() === &#x27;&#x27;
+        String(returId).trim() === ''
     ) {
 
         return res.status(400).json({
             success: false,
-            error: &#x27;ID retur tidak valid&#x27;
+            error: 'ID retur tidak valid'
         });
     }
 
     try {
 
-        await pool.query(`
+        await pool.query(\`
             DELETE FROM transactions
             WHERE nomor_transaksi = ?
-        `, [String(returId)]);
+        \`, [String(returId)]);
 
-        await pool.query(`
+        await pool.query(\`
             DELETE FROM tax_records
             WHERE nomor_transaksi = ?
-        `, [String(returId)]);
+        \`, [String(returId)]);
 
-        await pool.query(`
+        await pool.query(\`
             DELETE FROM retur_records
             WHERE id = ?
-        `, [String(returId)]);
+        \`, [String(returId)]);
 
         invalidateDataCache();
 
         res.json({
             success: true,
             message:
-                &#x27;Retur berhasil dihapus dari server&#x27;
+                'Retur berhasil dihapus dari server'
         });
 
     } catch (error) {
 
         console.error(
-            &#x27;Error hapus retur:&#x27;,
+            'Error hapus retur:',
             error
         );
 
@@ -2139,7 +2300,7 @@ app.post(&#x27;/api/transaction/delete-retur&#x27;, async (req, res) =&gt; {
 // 9. HAPUS TRANSAKSI
 // ============================================================
 
-app.post(&#x27;/api/transaction/delete&#x27;, async (req, res) =&gt; {
+app.post('/api/transaction/delete', async (req, res) => {
 
     const cleanId =
         safeInteger(req.body?.id);
@@ -2148,34 +2309,34 @@ app.post(&#x27;/api/transaction/delete&#x27;, async (req, res) =&gt; {
 
         return res.status(400).json({
             success: false,
-            error: &#x27;ID transaksi tidak valid&#x27;
+            error: 'ID transaksi tidak valid'
         });
     }
 
     try {
 
-        await pool.query(`
+        await pool.query(\`
             DELETE FROM transactions
             WHERE id = ?
-        `, [cleanId]);
+        \`, [cleanId]);
 
-        await pool.query(`
+        await pool.query(\`
             DELETE FROM tax_records
             WHERE trx_id = ?
-        `, [cleanId]);
+        \`, [cleanId]);
 
         invalidateDataCache();
 
         res.json({
             success: true,
             message:
-                &#x27;Transaksi berhasil dihapus dari server&#x27;
+                'Transaksi berhasil dihapus dari server'
         });
 
     } catch (error) {
 
         console.error(
-            &#x27;Error hapus transaksi:&#x27;,
+            'Error hapus transaksi:',
             error
         );
 
@@ -2190,7 +2351,7 @@ app.post(&#x27;/api/transaction/delete&#x27;, async (req, res) =&gt; {
 // 10. EDIT STRUK
 // ============================================================
 
-app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
+app.put('/api/transaction/edit-struk', async (req, res) => {
 
     const invoice =
         req.body?.invoice;
@@ -2206,12 +2367,12 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
     if (
         invoice === undefined ||
         invoice === null ||
-        String(invoice).trim() === &#x27;&#x27;
+        String(invoice).trim() === ''
     ) {
 
         return res.status(400).json({
             success: false,
-            error: &#x27;Invoice tidak valid&#x27;
+            error: 'Invoice tidak valid'
         });
     }
 
@@ -2227,14 +2388,14 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         const [trxRows] =
-            await conn.query(`
+            await conn.query(\`
                 SELECT
                     id,
                     nomor_transaksi
                 FROM transactions
                 WHERE nomor_transaksi = ?
                 ORDER BY id ASC
-            `, [
+            \`, [
                 String(invoice)
             ]);
 
@@ -2245,7 +2406,7 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
             return res.status(404).json({
                 success: false,
                 error:
-                    &#x27;Invoice tidak ditemukan di database&#x27;
+                    'Invoice tidak ditemukan di database'
             });
         }
 
@@ -2255,12 +2416,12 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
 
         for (
             let i = 0;
-            i &lt; trxRows.length;
+            i < trxRows.length;
             i++
         ) {
 
             if (
-                i &gt;= items.length
+                i >= items.length
             ) {
                 continue;
             }
@@ -2284,11 +2445,11 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
             // Update transaksi
             // ------------------------------------------------
 
-            await conn.query(`
+            await conn.query(\`
                 UPDATE transactions
                 SET harga_satuan = ?
                 WHERE id = ?
-            `, [
+            \`, [
                 newHarga,
                 dbId
             ]);
@@ -2298,14 +2459,14 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
             // ------------------------------------------------
 
             const [taxRows] =
-                await conn.query(`
+                await conn.query(\`
                     SELECT
                         tax_id,
                         jumlah,
                         persentase_pajak
                     FROM tax_records
                     WHERE trx_id = ?
-                `, [
+                \`, [
                     dbId
                 ]);
 
@@ -2332,14 +2493,14 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
                         persen
                     ) / 100;
 
-                await conn.query(`
+                await conn.query(\`
                     UPDATE tax_records
                     SET
                         harga_satuan = ?,
                         subtotal = ?,
                         nilai_pajak = ?
                     WHERE tax_id = ?
-                `, [
+                \`, [
                     newHarga,
                     newSubtotal,
                     newNilaiPajak,
@@ -2353,9 +2514,9 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            diskon !== undefined &amp;&amp;
-            diskon !== null &amp;&amp;
-            trxRows.length &gt; 0
+            diskon !== undefined &&
+            diskon !== null &&
+            trxRows.length > 0
         ) {
 
             const firstId =
@@ -2365,11 +2526,11 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
 
             if (firstId !== null) {
 
-                await conn.query(`
+                await conn.query(\`
                     UPDATE transactions
                     SET diskon = ?
                     WHERE id = ?
-                `, [
+                \`, [
                     safeNumber(diskon),
                     firstId
                 ]);
@@ -2381,14 +2542,14 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
         invalidateDataCache();
 
         console.log(
-            &#x27;[EDIT STRUK] SUCCESS:&#x27;,
+            '[EDIT STRUK] SUCCESS:',
             invoice
         );
 
         res.json({
             success: true,
             message:
-                &#x27;Struk berhasil diedit&#x27;,
+                'Struk berhasil diedit',
             invoice:
                 String(invoice)
         });
@@ -2400,14 +2561,14 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
         } catch (e) {}
 
         console.error(
-            &#x27;[EDIT STRUK] ERROR:&#x27;,
+            '[EDIT STRUK] ERROR:',
             error
         );
 
         res.status(500).json({
             success: false,
             error:
-                &#x27;Gagal menyimpan edit struk: &#x27; +
+                'Gagal menyimpan edit struk: ' +
                 error.message
         });
 
@@ -2421,7 +2582,7 @@ app.put(&#x27;/api/transaction/edit-struk&#x27;, async (req, res) =&gt; {
 // 11. PAYOFF / PELUNASAN BON
 // ============================================================
 
-app.put(&#x27;/api/transactions/payoff&#x27;, async (req, res) =&gt; {
+app.put('/api/transactions/payoff', async (req, res) => {
 
     const trxId =
         req.body?.trxId;
@@ -2429,12 +2590,12 @@ app.put(&#x27;/api/transactions/payoff&#x27;, async (req, res) =&gt; {
     if (
         trxId === undefined ||
         trxId === null ||
-        String(trxId).trim() === &#x27;&#x27;
+        String(trxId).trim() === ''
     ) {
 
         return res.status(400).json({
             success: false,
-            error: &#x27;Nomor invoice tidak valid&#x27;
+            error: 'Nomor invoice tidak valid'
         });
     }
 
@@ -2446,11 +2607,11 @@ app.put(&#x27;/api/transactions/payoff&#x27;, async (req, res) =&gt; {
         await conn.beginTransaction();
 
         const [trxRows] =
-            await conn.query(`
+            await conn.query(\`
                 SELECT *
                 FROM transactions
                 WHERE nomor_transaksi = ?
-            `, [
+            \`, [
                 String(trxId)
             ]);
 
@@ -2461,14 +2622,14 @@ app.put(&#x27;/api/transactions/payoff&#x27;, async (req, res) =&gt; {
             return res.status(404).json({
                 success: false,
                 error:
-                    &#x27;Invoice tidak ditemukan&#x27;
+                    'Invoice tidak ditemukan'
             });
         }
 
         const isAlreadyLunas =
             trxRows.every(
-                t =&gt;
-                    t.status_bayar === &#x27;Lunas&#x27;
+                t =>
+                    t.status_bayar === 'Lunas'
             );
 
         if (isAlreadyLunas) {
@@ -2478,13 +2639,13 @@ app.put(&#x27;/api/transactions/payoff&#x27;, async (req, res) =&gt; {
             return res.status(400).json({
                 success: false,
                 error:
-                    &#x27;Invoice sudah lunas&#x27;
+                    'Invoice sudah lunas'
             });
         }
 
         const total =
             trxRows.reduce(
-                (sum, t) =&gt;
+                (sum, t) =>
                     sum +
                     (
                         safeNumber(
@@ -2501,26 +2662,26 @@ app.put(&#x27;/api/transactions/payoff&#x27;, async (req, res) =&gt; {
                 trxRows[0].diskon
             );
 
-        await conn.query(`
+        await conn.query(\`
             UPDATE transactions
             SET
-                status_bayar = &#x27;Lunas&#x27;,
-                keterangan = &#x27;Bon (Lunas)&#x27;,
+                status_bayar = 'Lunas',
+                keterangan = 'Bon (Lunas)',
                 tanggal_lunas = NOW()
             WHERE nomor_transaksi = ?
-        `, [
+        \`, [
             String(trxId)
         ]);
 
-        await conn.query(`
+        await conn.query(\`
             UPDATE tax_records
-            SET status_bayar = &#x27;Lunas&#x27;
+            SET status_bayar = 'Lunas'
             WHERE nomor_transaksi = ?
-        `, [
+        \`, [
             String(trxId)
         ]);
 
-        await conn.query(`
+        await conn.query(\`
             INSERT INTO cash_inflows
             (
                 id,
@@ -2530,14 +2691,14 @@ app.put(&#x27;/api/transactions/payoff&#x27;, async (req, res) =&gt; {
                 kasir
             )
             VALUES (?, ?, ?, ?, ?)
-        `, [
+        \`, [
             Date.now(),
             new Date(),
             total,
-            &#x27;Pelunasan Bon: &#x27; +
+            'Pelunasan Bon: ' +
                 String(trxId),
             trxRows[0].kasir ||
-                &#x27;Admin&#x27;
+                'Admin'
         ]);
 
         await conn.commit();
@@ -2547,7 +2708,7 @@ app.put(&#x27;/api/transactions/payoff&#x27;, async (req, res) =&gt; {
         res.json({
             success: true,
             message:
-                &#x27;Piutang berhasil dilunasi&#x27;,
+                'Piutang berhasil dilunasi',
             total
         });
 
@@ -2558,7 +2719,7 @@ app.put(&#x27;/api/transactions/payoff&#x27;, async (req, res) =&gt; {
         } catch (e) {}
 
         console.error(
-            &#x27;Error payoff:&#x27;,
+            'Error payoff:',
             error
         );
 
@@ -2577,20 +2738,20 @@ app.put(&#x27;/api/transactions/payoff&#x27;, async (req, res) =&gt; {
 // 12. EDIT TRANSAKSI MANUAL
 // ============================================================
 
-app.put(&#x27;/api/transaction/:id&#x27;, async (req, res) =&gt; {
+app.put('/api/transaction/:id', async (req, res) => {
 
     const transactionId =
         safeInteger(req.params.id);
 
     if (
         transactionId === null ||
-        transactionId &lt;= 0
+        transactionId <= 0
     ) {
 
         return res.status(400).json({
             success: false,
             error:
-                &#x27;ID transaksi tidak valid&#x27;
+                'ID transaksi tidak valid'
         });
     }
 
@@ -2599,7 +2760,7 @@ app.put(&#x27;/api/transaction/:id&#x27;, async (req, res) =&gt; {
 
     try {
 
-        await pool.query(`
+        await pool.query(\`
             UPDATE transactions
             SET
                 sparepart_id = ?,
@@ -2611,7 +2772,7 @@ app.put(&#x27;/api/transaction/:id&#x27;, async (req, res) =&gt; {
                 tujuan = ?,
                 keterangan = ?
             WHERE id = ?
-        `, [
+        \`, [
 
             safeInteger(
                 updatedData.sparepart_id
@@ -2652,13 +2813,13 @@ app.put(&#x27;/api/transaction/:id&#x27;, async (req, res) =&gt; {
         res.json({
             success: true,
             message:
-                &#x27;Transaksi berhasil diupdate&#x27;
+                'Transaksi berhasil diupdate'
         });
 
     } catch (error) {
 
         console.error(
-            &#x27;Error edit transaksi:&#x27;,
+            'Error edit transaksi:',
             error
         );
 
@@ -2673,7 +2834,7 @@ app.put(&#x27;/api/transaction/:id&#x27;, async (req, res) =&gt; {
 // 13. HAPUS KAS KELUAR
 // ============================================================
 
-app.post(&#x27;/api/cash-expense/delete&#x27;, async (req, res) =&gt; {
+app.post('/api/cash-expense/delete', async (req, res) => {
 
     const id =
         safeInteger(
@@ -2684,29 +2845,29 @@ app.post(&#x27;/api/cash-expense/delete&#x27;, async (req, res) =&gt; {
 
         return res.status(400).json({
             success: false,
-            error: &#x27;ID kas tidak valid&#x27;
+            error: 'ID kas tidak valid'
         });
     }
 
     try {
 
-        await pool.query(`
+        await pool.query(\`
             DELETE FROM cash_expenses
             WHERE id = ?
-        `, [id]);
+        \`, [id]);
 
         invalidateDataCache();
 
         res.json({
             success: true,
             message:
-                &#x27;Pengeluaran kas berhasil dihapus&#x27;
+                'Pengeluaran kas berhasil dihapus'
         });
 
     } catch (error) {
 
         console.error(
-            &#x27;Error hapus cash expense:&#x27;,
+            'Error hapus cash expense:',
             error
         );
 
@@ -2721,7 +2882,7 @@ app.post(&#x27;/api/cash-expense/delete&#x27;, async (req, res) =&gt; {
 // 14. HAPUS KAS MASUK
 // ============================================================
 
-app.post(&#x27;/api/cash-inflow/delete&#x27;, async (req, res) =&gt; {
+app.post('/api/cash-inflow/delete', async (req, res) => {
 
     const id =
         safeInteger(
@@ -2732,29 +2893,29 @@ app.post(&#x27;/api/cash-inflow/delete&#x27;, async (req, res) =&gt; {
 
         return res.status(400).json({
             success: false,
-            error: &#x27;ID kas tidak valid&#x27;
+            error: 'ID kas tidak valid'
         });
     }
 
     try {
 
-        await pool.query(`
+        await pool.query(\`
             DELETE FROM cash_inflows
             WHERE id = ?
-        `, [id]);
+        \`, [id]);
 
         invalidateDataCache();
 
         res.json({
             success: true,
             message:
-                &#x27;Tambahan kas berhasil dihapus&#x27;
+                'Tambahan kas berhasil dihapus'
         });
 
     } catch (error) {
 
         console.error(
-            &#x27;Error hapus cash inflow:&#x27;,
+            'Error hapus cash inflow:',
             error
         );
 
@@ -2769,12 +2930,12 @@ app.post(&#x27;/api/cash-inflow/delete&#x27;, async (req, res) =&gt; {
 // 15. PARTNER
 // ============================================================
 
-app.post(&#x27;/api/partner&#x27;, async (req, res) =&gt; {
+app.post('/api/partner', async (req, res) => {
 
     try {
 
         await pool.query(
-            &#x27;INSERT INTO partners SET ?&#x27;,
+            'INSERT INTO partners SET ?',
             req.body
         );
 
@@ -2783,7 +2944,7 @@ app.post(&#x27;/api/partner&#x27;, async (req, res) =&gt; {
         res.json({
             success: true,
             message:
-                &#x27;Partner disimpan&#x27;
+                'Partner disimpan'
         });
 
     } catch (error) {
@@ -2795,7 +2956,7 @@ app.post(&#x27;/api/partner&#x27;, async (req, res) =&gt; {
     }
 });
 
-app.put(&#x27;/api/partner/:id&#x27;, async (req, res) =&gt; {
+app.put('/api/partner/:id', async (req, res) => {
 
     const id =
         safeInteger(
@@ -2807,14 +2968,14 @@ app.put(&#x27;/api/partner/:id&#x27;, async (req, res) =&gt; {
         return res.status(400).json({
             success: false,
             error:
-                &#x27;ID partner tidak valid&#x27;
+                'ID partner tidak valid'
         });
     }
 
     try {
 
         await pool.query(
-            &#x27;UPDATE partners SET ? WHERE id = ?&#x27;,
+            'UPDATE partners SET ? WHERE id = ?',
             [
                 req.body,
                 id
@@ -2826,7 +2987,7 @@ app.put(&#x27;/api/partner/:id&#x27;, async (req, res) =&gt; {
         res.json({
             success: true,
             message:
-                &#x27;Partner diupdate&#x27;
+                'Partner diupdate'
         });
 
     } catch (error) {
@@ -2838,7 +2999,7 @@ app.put(&#x27;/api/partner/:id&#x27;, async (req, res) =&gt; {
     }
 });
 
-app.delete(&#x27;/api/partner/:id&#x27;, async (req, res) =&gt; {
+app.delete('/api/partner/:id', async (req, res) => {
 
     const id =
         safeInteger(
@@ -2850,14 +3011,14 @@ app.delete(&#x27;/api/partner/:id&#x27;, async (req, res) =&gt; {
         return res.status(400).json({
             success: false,
             error:
-                &#x27;ID partner tidak valid&#x27;
+                'ID partner tidak valid'
         });
     }
 
     try {
 
         await pool.query(
-            &#x27;DELETE FROM partners WHERE id = ?&#x27;,
+            'DELETE FROM partners WHERE id = ?',
             [id]
         );
 
@@ -2866,7 +3027,7 @@ app.delete(&#x27;/api/partner/:id&#x27;, async (req, res) =&gt; {
         res.json({
             success: true,
             message:
-                &#x27;Partner dihapus&#x27;
+                'Partner dihapus'
         });
 
     } catch (error) {
@@ -2882,30 +3043,34 @@ app.delete(&#x27;/api/partner/:id&#x27;, async (req, res) =&gt; {
 // 16. SETTINGS
 // ============================================================
 
-app.put(&#x27;/api/settings&#x27;, async (req, res) =&gt; {
+app.put('/api/settings', async (req, res) => {
 
     const {
         kasAwal,
         activeShiftStart,
         masterPajak,
+        masterBank,
         users,
         shiftSessions,
+        auditTrail,
         cashExpenses,
         cashInflows
     } = req.body || {};
 
     try {
 
-        await pool.query(`
+        await pool.query(\`
             UPDATE app_settings
             SET
                 kas_awal = ?,
                 active_shift_start = ?,
                 master_pajak = ?,
+                master_bank = ?,
                 users = ?,
-                shift_sessions = ?
+                shift_sessions = ?,
+                audit_trail = ?
             WHERE id = 1
-        `, [
+        \`, [
 
             safeNumber(
                 kasAwal
@@ -2921,6 +3086,12 @@ app.put(&#x27;/api/settings&#x27;, async (req, res) =&gt; {
             ),
 
             JSON.stringify(
+                Array.isArray(masterBank)
+                    ? masterBank
+                    : []
+            ),
+
+            JSON.stringify(
                 Array.isArray(users)
                     ? users
                     : []
@@ -2930,25 +3101,100 @@ app.put(&#x27;/api/settings&#x27;, async (req, res) =&gt; {
                 Array.isArray(shiftSessions)
                     ? shiftSessions
                     : []
+            ),
+
+            JSON.stringify(
+                Array.isArray(auditTrail)
+                    ? auditTrail
+                    : []
             )
         ]);
+
+        // ----------------------------------------------------
+        // Sinkronisasi master_pajak
+        // ----------------------------------------------------
+        if (Array.isArray(masterPajak)) {
+            await pool.query(\`DELETE FROM master_pajak\`);
+            for (let i = 0; i < masterPajak.length; i++) {
+                const p = masterPajak[i] || {};
+                await pool.query(\`INSERT INTO master_pajak (id, jenis, persentase, kode_pajak, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)\`, [
+                    safeInteger(p.id, i + 1), safeString(p.jenis || p.nama), safeNumber(p.persentase), safeString(p.kode_pajak), p.aktif === false ? 0 : 1, safeString(p.keterangan)
+                ]);
+            }
+        }
+
+        // ----------------------------------------------------
+        // Sinkronisasi master_bank
+        // ----------------------------------------------------
+        if (Array.isArray(masterBank)) {
+            await pool.query(\`DELETE FROM master_bank\`);
+            for (let i = 0; i < masterBank.length; i++) {
+                const b = masterBank[i] || {};
+                await pool.query(\`INSERT INTO master_bank (id, nama, rekening, atas_nama, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)\`, [
+                    safeInteger(b.id, i + 1), safeString(b.nama || b.bank), safeString(b.rekening || b.nomor_rekening), safeString(b.atas_nama || b.nama_rekening), b.aktif === false ? 0 : 1, safeString(b.keterangan)
+                ]);
+            }
+        }
+
+        // ----------------------------------------------------
+        // Sinkronisasi users - jangan pernah menghilangkan admin
+        // ----------------------------------------------------
+        if (Array.isArray(users)) {
+            await pool.query(\`DELETE FROM users\`);
+            for (const u of users) {
+                if (!u || !u.username) continue;
+                await pool.query(\`INSERT INTO users (username, password, role, name, aktif, data) VALUES (?, ?, ?, ?, ?, ?)\`, [
+                    safeString(u.username), safeString(u.password), safeString(u.role, 'Kasir'), safeString(u.name), u.aktif === false ? 0 : 1, JSON.stringify(u)
+                ]);
+            }
+            // Failsafe login admin bila frontend pernah mengirim users kosong/tidak lengkap.
+            const [adminRows] = await pool.query(\`SELECT username FROM users WHERE username = 'admin' LIMIT 1\`);
+            if (adminRows.length === 0) {
+                await pool.query(\`INSERT INTO users (username, password, role, name, aktif, data) VALUES ('admin','admin123','Admin','Administrator',1,?)\`, [JSON.stringify({username:'admin',password:'admin123',role:'Admin',name:'Administrator'})]);
+            }
+        }
+
+        // ----------------------------------------------------
+        // Sinkronisasi shift_sessions dan audit_trail
+        // ----------------------------------------------------
+        if (Array.isArray(shiftSessions)) {
+            await pool.query(\`DELETE FROM shift_sessions\`);
+            for (let i = 0; i < shiftSessions.length; i++) {
+                const x = shiftSessions[i] || {};
+                const id = safeString(x.id || x.sessionId || ('SHIFT-' + i + '-' + Date.now()));
+                await pool.query(\`INSERT INTO shift_sessions (id, username, name, shift, start_time, end_time, status, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)\`, [
+                    id, safeString(x.username || x.user), safeString(x.name), safeString(x.shift), x.start_time ? safeDate(x.start_time) : null, x.end_time ? safeDate(x.end_time) : null, safeString(x.status), JSON.stringify(x)
+                ]);
+            }
+        }
+
+        if (Array.isArray(auditTrail)) {
+            await pool.query(\`DELETE FROM audit_trail\`);
+            for (let i = 0; i < auditTrail.length && i < 1000; i++) {
+                const x = auditTrail[i] || {};
+                const id = safeString(x.id || ('AUDIT-' + i + '-' + Date.now()));
+                await pool.query(\`INSERT INTO audit_trail (id, timestamp, username, name, action, details, data) VALUES (?, ?, ?, ?, ?, ?, ?)\`, [
+                    id, safeNumber(x.timestamp), safeString(x.username || x.user), safeString(x.name), safeString(x.action), safeString(x.details || x.description), JSON.stringify(x)
+                ]);
+            }
+        }
 
         // ----------------------------------------------------
         // CASH EXPENSES
         // ----------------------------------------------------
 
         if (
-            Array.isArray(cashExpenses) &amp;&amp;
-            cashExpenses.length &gt; 0
+            Array.isArray(cashExpenses) &&
+            cashExpenses.length > 0
         ) {
 
             const values =
                 cashExpenses
                     .filter(
-                        e =&gt;
+                        e =>
                             safeInteger(e.id) !== null
                     )
-                    .map(e =&gt; [
+                    .map(e => [
                         safeInteger(e.id),
                         safeDate(e.tanggal),
                         safeNumber(e.jumlah),
@@ -2956,9 +3202,9 @@ app.put(&#x27;/api/settings&#x27;, async (req, res) =&gt; {
                         safeString(e.kasir)
                     ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await pool.query(`
+                await pool.query(\`
                     INSERT INTO cash_expenses
                     (
                         id,
@@ -2973,7 +3219,7 @@ app.put(&#x27;/api/settings&#x27;, async (req, res) =&gt; {
                         jumlah = VALUES(jumlah),
                         keterangan = VALUES(keterangan),
                         kasir = VALUES(kasir)
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -2982,17 +3228,17 @@ app.put(&#x27;/api/settings&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(cashInflows) &amp;&amp;
-            cashInflows.length &gt; 0
+            Array.isArray(cashInflows) &&
+            cashInflows.length > 0
         ) {
 
             const values =
                 cashInflows
                     .filter(
-                        i =&gt;
+                        i =>
                             safeInteger(i.id) !== null
                     )
-                    .map(i =&gt; [
+                    .map(i => [
                         safeInteger(i.id),
                         safeDate(i.tanggal),
                         safeNumber(i.jumlah),
@@ -3000,9 +3246,9 @@ app.put(&#x27;/api/settings&#x27;, async (req, res) =&gt; {
                         safeString(i.kasir)
                     ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await pool.query(`
+                await pool.query(\`
                     INSERT INTO cash_inflows
                     (
                         id,
@@ -3017,7 +3263,7 @@ app.put(&#x27;/api/settings&#x27;, async (req, res) =&gt; {
                         jumlah = VALUES(jumlah),
                         keterangan = VALUES(keterangan),
                         kasir = VALUES(kasir)
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -3026,13 +3272,13 @@ app.put(&#x27;/api/settings&#x27;, async (req, res) =&gt; {
         res.json({
             success: true,
             message:
-                &#x27;Settings berhasil disimpan&#x27;
+                'Settings berhasil disimpan'
         });
 
     } catch (error) {
 
         console.error(
-            &#x27;Error settings:&#x27;,
+            'Error settings:',
             error
         );
 
@@ -3052,7 +3298,7 @@ app.put(&#x27;/api/settings&#x27;, async (req, res) =&gt; {
 // memanggil POST /api/restore.
 // ============================================================
 
-app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
+app.post('/api/restore', async (req, res) => {
 
     const data =
         req.body || {};
@@ -3069,31 +3315,31 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         await conn.query(
-            &#x27;DELETE FROM spareparts&#x27;
+            'DELETE FROM spareparts'
         );
 
         await conn.query(
-            &#x27;DELETE FROM transactions&#x27;
+            'DELETE FROM transactions'
         );
 
         await conn.query(
-            &#x27;DELETE FROM partners&#x27;
+            'DELETE FROM partners'
         );
 
         await conn.query(
-            &#x27;DELETE FROM cash_expenses&#x27;
+            'DELETE FROM cash_expenses'
         );
 
         await conn.query(
-            &#x27;DELETE FROM cash_inflows&#x27;
+            'DELETE FROM cash_inflows'
         );
 
         await conn.query(
-            &#x27;DELETE FROM tax_records&#x27;
+            'DELETE FROM tax_records'
         );
 
         await conn.query(
-            &#x27;DELETE FROM retur_records&#x27;
+            'DELETE FROM retur_records'
         );
 
         // ----------------------------------------------------
@@ -3101,25 +3347,25 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(data.spareparts) &amp;&amp;
-            data.spareparts.length &gt; 0
+            Array.isArray(data.spareparts) &&
+            data.spareparts.length > 0
         ) {
 
             const values =
                 data.spareparts
                     .filter(
-                        sp =&gt;
+                        sp =>
                             safeInteger(sp.id) !== null
                     )
-                    .map(sp =&gt; [
+                    .map(sp => [
                         safeInteger(sp.id),
                         safeString(sp.kode),
                         safeString(sp.part_number),
                         safeString(sp.part_numbers_alt),
                         safeString(sp.nama),
-                        safeString(sp.kategori, &#x27;Umum&#x27;),
+                        safeString(sp.kategori, 'Umum'),
                         safeString(sp.merek),
-                        safeString(sp.satuan, &#x27;Pcs&#x27;),
+                        safeString(sp.satuan, 'Pcs'),
                         safeNumber(sp.stok_min),
                         safeNumber(sp.stok_awal),
                         safeNumber(sp.harga_beli),
@@ -3127,18 +3373,18 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         safeString(sp.satuan_alt),
                         safeNumber(sp.isi_satuan_alt),
                         safeNumber(sp.harga_jual_alt),
-                        safeString(sp.pajak_status, &#x27;Non Pajak&#x27;),
+                        safeString(sp.pajak_status, 'Non Pajak'),
                         safeString(sp.kode_pajak),
                         safeString(sp.keterangan)
                     ]);
 
             for (
                 let i = 0;
-                i &lt; values.length;
+                i < values.length;
                 i += 500
             ) {
 
-                await conn.query(`
+                await conn.query(\`
                     INSERT INTO spareparts
                     (
                         id,
@@ -3161,7 +3407,7 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         keterangan
                     )
                     VALUES ?
-                `, [
+                \`, [
                     values.slice(
                         i,
                         i + 500
@@ -3175,17 +3421,17 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(data.transactions) &amp;&amp;
-            data.transactions.length &gt; 0
+            Array.isArray(data.transactions) &&
+            data.transactions.length > 0
         ) {
 
             const values =
                 data.transactions
                     .filter(
-                        t =&gt;
+                        t =>
                             safeInteger(t.id) !== null
                     )
-                    .map(t =&gt; [
+                    .map(t => [
 
                         safeInteger(t.id),
 
@@ -3280,11 +3526,11 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
 
             for (
                 let i = 0;
-                i &lt; values.length;
+                i < values.length;
                 i += 500
             ) {
 
-                await conn.query(`
+                await conn.query(\`
                     INSERT INTO transactions
                     (
                         id,
@@ -3312,7 +3558,7 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         tanggal_lunas
                     )
                     VALUES ?
-                `, [
+                \`, [
                     values.slice(
                         i,
                         i + 500
@@ -3326,17 +3572,17 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(data.partners) &amp;&amp;
-            data.partners.length &gt; 0
+            Array.isArray(data.partners) &&
+            data.partners.length > 0
         ) {
 
             const values =
                 data.partners
                     .filter(
-                        p =&gt;
+                        p =>
                             safeInteger(p.id) !== null
                     )
-                    .map(p =&gt; [
+                    .map(p => [
                         safeInteger(p.id),
                         safeString(p.nama),
                         safeString(p.tipe),
@@ -3344,9 +3590,9 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         safeString(p.alamat)
                     ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await conn.query(`
+                await conn.query(\`
                     INSERT INTO partners
                     (
                         id,
@@ -3356,7 +3602,7 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         alamat
                     )
                     VALUES ?
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -3365,17 +3611,17 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(data.cashExpenses) &amp;&amp;
-            data.cashExpenses.length &gt; 0
+            Array.isArray(data.cashExpenses) &&
+            data.cashExpenses.length > 0
         ) {
 
             const values =
                 data.cashExpenses
                     .filter(
-                        e =&gt;
+                        e =>
                             safeInteger(e.id) !== null
                     )
-                    .map(e =&gt; [
+                    .map(e => [
                         safeInteger(e.id),
                         safeDate(e.tanggal),
                         safeNumber(e.jumlah),
@@ -3383,9 +3629,9 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         safeString(e.kasir)
                     ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await conn.query(`
+                await conn.query(\`
                     INSERT INTO cash_expenses
                     (
                         id,
@@ -3395,7 +3641,7 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         kasir
                     )
                     VALUES ?
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -3404,17 +3650,17 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(data.cashInflows) &amp;&amp;
-            data.cashInflows.length &gt; 0
+            Array.isArray(data.cashInflows) &&
+            data.cashInflows.length > 0
         ) {
 
             const values =
                 data.cashInflows
                     .filter(
-                        i =&gt;
+                        i =>
                             safeInteger(i.id) !== null
                     )
-                    .map(i =&gt; [
+                    .map(i => [
                         safeInteger(i.id),
                         safeDate(i.tanggal),
                         safeNumber(i.jumlah),
@@ -3422,9 +3668,9 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         safeString(i.kasir)
                     ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await conn.query(`
+                await conn.query(\`
                     INSERT INTO cash_inflows
                     (
                         id,
@@ -3434,7 +3680,7 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         kasir
                     )
                     VALUES ?
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -3443,18 +3689,18 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(data.taxRecords) &amp;&amp;
-            data.taxRecords.length &gt; 0
+            Array.isArray(data.taxRecords) &&
+            data.taxRecords.length > 0
         ) {
 
             const values =
                 data.taxRecords
                     .filter(
-                        t =&gt;
-                            t &amp;&amp;
+                        t =>
+                            t &&
                             t.tax_id
                     )
-                    .map(t =&gt; [
+                    .map(t => [
 
                         safeString(
                             t.tax_id
@@ -3522,9 +3768,9 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         )
                     ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await conn.query(`
+                await conn.query(\`
                     INSERT INTO tax_records
                     (
                         tax_id,
@@ -3545,7 +3791,7 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         nilai_pajak
                     )
                     VALUES ?
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -3554,20 +3800,20 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
         // ----------------------------------------------------
 
         if (
-            Array.isArray(data.returRecords) &amp;&amp;
-            data.returRecords.length &gt; 0
+            Array.isArray(data.returRecords) &&
+            data.returRecords.length > 0
         ) {
 
             const values =
                 data.returRecords
                     .filter(
-                        r =&gt;
-                            r &amp;&amp;
-                            r.id !== undefined &amp;&amp;
-                            r.id !== null &amp;&amp;
-                            String(r.id).trim() !== &#x27;&#x27;
+                        r =>
+                            r &&
+                            r.id !== undefined &&
+                            r.id !== null &&
+                            String(r.id).trim() !== ''
                     )
-                    .map(r =&gt; [
+                    .map(r => [
 
                         String(r.id),
 
@@ -3602,9 +3848,9 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         )
                     ]);
 
-            if (values.length &gt; 0) {
+            if (values.length > 0) {
 
-                await conn.query(`
+                await conn.query(\`
                     INSERT INTO retur_records
                     (
                         id,
@@ -3616,7 +3862,7 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                         exchange_items
                     )
                     VALUES ?
-                `, [values]);
+                \`, [values]);
             }
         }
 
@@ -3624,16 +3870,18 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
         // SETTINGS
         // ----------------------------------------------------
 
-        await conn.query(`
+        await conn.query(\`
             UPDATE app_settings
             SET
                 kas_awal = ?,
                 active_shift_start = ?,
                 master_pajak = ?,
+                master_bank = ?,
                 users = ?,
-                shift_sessions = ?
+                shift_sessions = ?,
+                audit_trail = ?
             WHERE id = 1
-        `, [
+        \`, [
 
             safeNumber(
                 data.kasAwal
@@ -3651,6 +3899,12 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
             ),
 
             JSON.stringify(
+                Array.isArray(data.masterBank)
+                    ? data.masterBank
+                    : []
+            ),
+
+            JSON.stringify(
                 Array.isArray(
                     data.users
                 )
@@ -3662,8 +3916,53 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
                 Array.isArray(data.shiftSessions)
                     ? data.shiftSessions
                     : []
+            ),
+
+            JSON.stringify(
+                Array.isArray(data.auditTrail)
+                    ? data.auditTrail
+                    : []
             )
         ]);
+
+        // Sinkronisasi tabel master tambahan saat restore.
+        await conn.query(\`DELETE FROM master_pajak\`);
+        if (Array.isArray(data.masterPajak)) {
+            for (let i = 0; i < data.masterPajak.length; i++) {
+                const x = data.masterPajak[i] || {};
+                await conn.query(\`INSERT INTO master_pajak (id, jenis, persentase, kode_pajak, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)\`, [safeInteger(x.id, i+1), safeString(x.jenis || x.nama), safeNumber(x.persentase), safeString(x.kode_pajak), x.aktif === false ? 0 : 1, safeString(x.keterangan)]);
+            }
+        }
+        await conn.query(\`DELETE FROM master_bank\`);
+        if (Array.isArray(data.masterBank)) {
+            for (let i = 0; i < data.masterBank.length; i++) {
+                const x = data.masterBank[i] || {};
+                await conn.query(\`INSERT INTO master_bank (id, nama, rekening, atas_nama, aktif, keterangan) VALUES (?, ?, ?, ?, ?, ?)\`, [safeInteger(x.id, i+1), safeString(x.nama || x.bank), safeString(x.rekening || x.nomor_rekening), safeString(x.atas_nama || x.nama_rekening), x.aktif === false ? 0 : 1, safeString(x.keterangan)]);
+            }
+        }
+        await conn.query(\`DELETE FROM users\`);
+        if (Array.isArray(data.users)) {
+            for (const x of data.users) {
+                if (!x || !x.username) continue;
+                await conn.query(\`INSERT INTO users (username, password, role, name, aktif, data) VALUES (?, ?, ?, ?, ?, ?)\`, [safeString(x.username), safeString(x.password), safeString(x.role, 'Kasir'), safeString(x.name), x.aktif === false ? 0 : 1, JSON.stringify(x)]);
+            }
+        }
+        const [adminCheck] = await conn.query(\`SELECT username FROM users WHERE username='admin' LIMIT 1\`);
+        if (adminCheck.length === 0) await conn.query(\`INSERT INTO users (username,password,role,name,aktif,data) VALUES ('admin','admin123','Admin','Administrator',1,?)\`, [JSON.stringify({username:'admin',password:'admin123',role:'Admin',name:'Administrator'})]);
+        await conn.query(\`DELETE FROM shift_sessions\`);
+        if (Array.isArray(data.shiftSessions)) {
+            for (let i = 0; i < data.shiftSessions.length; i++) {
+                const x=data.shiftSessions[i]||{}; const id=safeString(x.id||x.sessionId||('SHIFT-'+i+'-'+Date.now()));
+                await conn.query(\`INSERT INTO shift_sessions (id,username,name,shift,start_time,end_time,status,data) VALUES (?,?,?,?,?,?,?,?)\`, [id,safeString(x.username||x.user),safeString(x.name),safeString(x.shift),x.start_time?safeDate(x.start_time):null,x.end_time?safeDate(x.end_time):null,safeString(x.status),JSON.stringify(x)]);
+            }
+        }
+        await conn.query(\`DELETE FROM audit_trail\`);
+        if (Array.isArray(data.auditTrail)) {
+            for (let i=0;i<data.auditTrail.length && i<1000;i++) {
+                const x=data.auditTrail[i]||{}; const id=safeString(x.id||('AUDIT-'+i+'-'+Date.now()));
+                await conn.query(\`INSERT INTO audit_trail (id,timestamp,username,name,action,details,data) VALUES (?,?,?,?,?,?,?)\`, [id,safeNumber(x.timestamp),safeString(x.username||x.user),safeString(x.name),safeString(x.action),safeString(x.details||x.description),JSON.stringify(x)]);
+            }
+        }
 
         await conn.commit();
 
@@ -3672,7 +3971,7 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
         res.json({
             success: true,
             message:
-                &#x27;Restore data berhasil!&#x27;
+                'Restore data berhasil!'
         });
 
     } catch (error) {
@@ -3682,7 +3981,7 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
         } catch (e) {}
 
         console.error(
-            &#x27;Error restore:&#x27;,
+            'Error restore:',
             error
         );
 
@@ -3698,6 +3997,18 @@ app.post(&#x27;/api/restore&#x27;, async (req, res) =&gt; {
 });
 
 // ============================================================
+// HEALTH CHECK / DATABASE CHECK
+// ============================================================
+app.get('/api/health', async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT 1 AS ok');
+        res.json({ success:true, server:true, database: rows[0]?.ok === 1 });
+    } catch (error) {
+        res.status(503).json({ success:false, server:true, database:false, error:error.message });
+    }
+});
+
+// ============================================================
 // SERVER
 // ============================================================
 
@@ -3706,70 +4017,184 @@ const PORT =
 
 app.listen(
     PORT,
-    () =&gt; {
-        console.log(
-            `Server berjalan di port ${PORT}`
-        );
+    async () => {
+        console.log(\`Server berjalan di port \${PORT}\`);
+        // Jalankan inisialisasi otomatis saat deploy/startup.
+        // Endpoint /api/init tetap tersedia dan aman dipanggil ulang.
+        try {
+            await initializeDatabase();
+            console.log('Database initialization selesai.');
+        } catch (error) {
+            console.error('Database initialization gagal:', error.message);
+        }
     }
-);</pre>
+);
 
-<script>
-const source = 'const express = require(\'express\');\nconst cors = require(\'cors\');\nconst bodyParser = require(\'body-parser\');\nconst mysql = require(\'mysql2/promise\');\n\nconst app = express();\n\napp.use(cors());\napp.use(bodyParser.json({ limit: \'50mb\' }));\n\n// ============================================================\n// TEST SERVER\n// ============================================================\n\napp.get(\'/api/test\', (req, res) => {\n    res.json({\n        status: \'OK\',\n        message: \'Server berhasil berjalan!\'\n    });\n});\n\n// ============================================================\n// DATABASE CLEVER CLOUD\n// ============================================================\n\nconst pool = mysql.createPool({\n    host: \'b7fgoctdsrijlfhczppz-mysql.services.clever-cloud.com\',\n    user: \'uks2krvuygsynrco\',\n    password: \'fWwkTbshbBANrTGMj8Aq\',\n    database: \'b7fgoctdsrijlfhczppz\',\n    waitForConnections: true,\n    connectionLimit: 4,\n    queueLimit: 0\n});\n\n// ============================================================\n// ERROR HANDLER\n// ============================================================\n\npool.on(\'error\', (err) => {\n    console.error(\'Database pool error:\', err);\n});\n\nprocess.on(\'unhandledRejection\', (reason) => {\n    console.error(\'Unhandled Rejection:\', reason);\n});\n\nprocess.on(\'uncaughtException\', (error) => {\n    console.error(\'Uncaught Exception:\', error);\n});\n\n// ============================================================\n// CACHE DATA\n// ============================================================\n\nlet dataCache = null;\nlet dataCacheTime = 0;\n\nconst DATA_CACHE_TTL = 2000;\n\nfunction invalidateDataCache() {\n    dataCache = null;\n    dataCacheTime = 0;\n}\n\n// Semua request selain GET dianggap mengubah data\napp.use((req, res, next) => {\n    if (req.method !== \'GET\') {\n        invalidateDataCache();\n    }\n\n    next();\n});\n\n// ============================================================\n// HELPER\n// ============================================================\n\nfunction safeNumber(value, defaultValue = 0) {\n    const n = Number(value);\n\n    if (!Number.isFinite(n)) {\n        return defaultValue;\n    }\n\n    return n;\n}\n\nfunction safeInteger(value, defaultValue = null) {\n    const n = Number(value);\n\n    if (!Number.isInteger(n)) {\n        return defaultValue;\n    }\n\n    return n;\n}\n\nfunction safeString(value, defaultValue = \'\') {\n    if (value === undefined || value === null) {\n        return defaultValue;\n    }\n\n    return String(value);\n}\n\nfunction safeDate(value) {\n    if (!value) {\n        return new Date();\n    }\n\n    const d = new Date(value);\n\n    if (Number.isNaN(d.getTime())) {\n        return new Date();\n    }\n\n    return d;\n}\n\nfunction safeJSON(value, defaultValue = []) {\n    if (value === undefined || value === null) {\n        return defaultValue;\n    }\n\n    if (Array.isArray(value) || typeof value === \'object\') {\n        return value;\n    }\n\n    if (typeof value === \'string\') {\n        try {\n            return JSON.parse(value);\n        } catch (e) {\n            return defaultValue;\n        }\n    }\n\n    return defaultValue;\n}\n\n// ============================================================\n// 1. INISIALISASI TABEL\n// ============================================================\n\napp.get(\'/api/init\', async (req, res) => {\n    try {\n\n        await pool.query(`\n            CREATE TABLE IF NOT EXISTS spareparts (\n                id BIGINT PRIMARY KEY,\n                kode VARCHAR(50),\n                part_number VARCHAR(255),\n                part_numbers_alt TEXT,\n                nama VARCHAR(500),\n                kategori VARCHAR(100),\n                merek VARCHAR(100),\n                satuan VARCHAR(50),\n                stok_min INT DEFAULT 0,\n                stok_awal INT DEFAULT 0,\n                harga_beli BIGINT DEFAULT 0,\n                harga_jual BIGINT DEFAULT 0,\n                satuan_alt VARCHAR(50),\n                isi_satuan_alt INT DEFAULT 0,\n                harga_jual_alt BIGINT DEFAULT 0,\n                pajak_status VARCHAR(20),\n                kode_pajak VARCHAR(50),\n                keterangan TEXT\n            )\n            ENGINE=InnoDB\n            DEFAULT CHARSET=utf8mb4\n        `);\n\n        await pool.query(`\n            CREATE TABLE IF NOT EXISTS transactions (\n                id BIGINT PRIMARY KEY,\n                nomor_transaksi VARCHAR(50),\n                tanggal DATETIME,\n                sparepart_id BIGINT,\n                custom_item VARCHAR(500),\n                part_numbers_alt TEXT,\n                merek VARCHAR(100),\n                jenis VARCHAR(20),\n                jumlah INT,\n                satuan VARCHAR(50),\n                jumlah_dasar INT,\n                harga_satuan BIGINT,\n                tujuan VARCHAR(255),\n                keterangan TEXT,\n                source VARCHAR(50),\n                kasir VARCHAR(100),\n                status_bayar VARCHAR(20),\n                metode_bayar VARCHAR(50),\n                bayar_tunai BIGINT DEFAULT 0,\n                transfer_amount BIGINT DEFAULT 0,\n                kembalian_diberikan BIGINT DEFAULT 0,\n                diskon BIGINT DEFAULT 0,\n                tanggal_lunas DATETIME NULL\n            )\n            ENGINE=InnoDB\n            DEFAULT CHARSET=utf8mb4\n        `);\n\n        await pool.query(`\n            CREATE TABLE IF NOT EXISTS partners (\n                id BIGINT PRIMARY KEY,\n                nama VARCHAR(255),\n                tipe VARCHAR(50),\n                telp VARCHAR(50),\n                alamat TEXT\n            )\n            ENGINE=InnoDB\n            DEFAULT CHARSET=utf8mb4\n        `);\n\n        await pool.query(`\n            CREATE TABLE IF NOT EXISTS cash_expenses (\n                id BIGINT PRIMARY KEY,\n                tanggal DATETIME,\n                jumlah BIGINT,\n                keterangan TEXT,\n                kasir VARCHAR(100)\n            )\n            ENGINE=InnoDB\n            DEFAULT CHARSET=utf8mb4\n        `);\n\n        await pool.query(`\n            CREATE TABLE IF NOT EXISTS cash_inflows (\n                id BIGINT PRIMARY KEY,\n                tanggal DATETIME,\n                jumlah BIGINT,\n                keterangan TEXT,\n                kasir VARCHAR(100)\n            )\n            ENGINE=InnoDB\n            DEFAULT CHARSET=utf8mb4\n        `);\n\n        await pool.query(`\n            CREATE TABLE IF NOT EXISTS tax_records (\n                tax_id VARCHAR(100) PRIMARY KEY,\n                trx_id BIGINT,\n                tanggal DATETIME,\n                nomor_transaksi VARCHAR(50),\n                part_number VARCHAR(255),\n                nama VARCHAR(500),\n                kategori VARCHAR(100),\n                merek VARCHAR(100),\n                status_bayar VARCHAR(20),\n                pelanggan VARCHAR(255),\n                jumlah INT,\n                satuan VARCHAR(50),\n                harga_satuan BIGINT,\n                subtotal BIGINT,\n                persentase_pajak DECIMAL(5,2),\n                nilai_pajak BIGINT\n            )\n            ENGINE=InnoDB\n            DEFAULT CHARSET=utf8mb4\n        `);\n\n        await pool.query(`\n            CREATE TABLE IF NOT EXISTS retur_records (\n                id VARCHAR(50) PRIMARY KEY,\n                parent_invoice VARCHAR(50),\n                tanggal DATETIME,\n                kasir VARCHAR(100),\n                pelanggan VARCHAR(255),\n                items JSON,\n                exchange_items JSON\n            )\n            ENGINE=InnoDB\n            DEFAULT CHARSET=utf8mb4\n        `);\n\n        // =====================================================\n        // Pastikan exchange_items tersedia pada database lama\n        // =====================================================\n\n        try {\n            await pool.query(`\n                ALTER TABLE retur_records\n                ADD COLUMN exchange_items JSON\n            `);\n        } catch (e) {\n            // Kolom kemungkinan sudah ada.\n        }\n\n        await pool.query(`\n            CREATE TABLE IF NOT EXISTS app_settings (\n                id INT PRIMARY KEY DEFAULT 1,\n                kas_awal BIGINT DEFAULT 0,\n                active_shift_start BIGINT,\n                master_pajak JSON,\n                users JSON,\n                shift_sessions JSON\n            )\n            ENGINE=InnoDB\n            DEFAULT CHARSET=utf8mb4\n        `);\n\n        // Pastikan kolom shift_sessions tersedia pada database lama.\n        try {\n            await pool.query(`\n                ALTER TABLE app_settings\n                ADD COLUMN shift_sessions JSON\n            `);\n        } catch (e) {\n            // Kolom sudah ada, lanjut.\n        }\n\n        const [settings] = await pool.query(`\n            SELECT *\n            FROM app_settings\n            WHERE id = 1\n        `);\n\n        if (settings.length === 0) {\n\n            await pool.query(`\n                INSERT INTO app_settings\n                (\n                    id,\n                    kas_awal,\n                    active_shift_start,\n                    master_pajak,\n                    users,\n                    shift_sessions\n                )\n                VALUES (?, ?, ?, ?, ?, ?)\n            `, [\n                1,\n                0,\n                Date.now(),\n                JSON.stringify([\n                    {\n                        jenis: \'Aki Basah\',\n                        persentase: 20\n                    },\n                    {\n                        jenis: \'Aki Kering\',\n                        persentase: 11\n                    },\n                    {\n                        jenis: \'Oli\',\n                        persentase: 4\n                    },\n                    {\n                        jenis: \'Air Radiator\',\n                        persentase: 4\n                    },\n                    {\n                        jenis: \'Minyak Rem\',\n                        persentase: 4\n                    },\n                    {\n                        jenis: \'Lainnya\',\n                        persentase: 11\n                    }\n                ]),\n                JSON.stringify([\n                    {\n                        username: \'owner\',\n                        password: \'owner123\',\n                        role: \'Owner\',\n                        name: \'Pemilik\'\n                    },\n                    {\n                        username: \'admin\',\n                        password: \'admin123\',\n                        role: \'Admin\',\n                        name: \'Administrator\'\n                    },\n                    {\n                        username: \'pagi\',\n                        password: \'pagi123\',\n                        role: \'Kasir\',\n                        name: \'Kasir Pagi\'\n                    },\n                    {\n                        username: \'siang\',\n                        password: \'siang123\',\n                        role: \'Kasir\',\n                        name: \'Kasir Siang\'\n                    }\n                ]),\n                JSON.stringify([])\n            ]);\n        }\n\n        res.json({\n            success: true,\n            message: \'Database & tabel siap!\'\n        });\n\n    } catch (error) {\n\n        console.error(\'INIT ERROR:\', error);\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// 2. MIGRASI DATA\n// ============================================================\n\napp.post(\'/api/migrate\', async (req, res) => {\n\n    const oldData = req.body || {};\n\n    try {\n\n        // ----------------------------------------------------\n        // SPAREPART\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(oldData.spareparts) &&\n            oldData.spareparts.length > 0\n        ) {\n\n            const values = oldData.spareparts.map(sp => [\n                safeInteger(sp.id, Date.now()),\n                safeString(sp.kode),\n                safeString(sp.part_number),\n                safeString(sp.part_numbers_alt),\n                safeString(sp.nama),\n                safeString(sp.kategori, \'Umum\'),\n                safeString(sp.merek),\n                safeString(sp.satuan, \'Pcs\'),\n                safeNumber(sp.stok_min),\n                safeNumber(sp.stok_awal),\n                safeNumber(sp.harga_beli),\n                safeNumber(sp.harga_jual),\n                safeString(sp.satuan_alt),\n                safeNumber(sp.isi_satuan_alt),\n                safeNumber(sp.harga_jual_alt),\n                safeString(sp.pajak_status, \'Non Pajak\'),\n                safeString(sp.kode_pajak),\n                safeString(sp.keterangan)\n            ]);\n\n            for (let i = 0; i < values.length; i += 500) {\n\n                await pool.query(`\n                    INSERT IGNORE INTO spareparts\n                    (\n                        id,\n                        kode,\n                        part_number,\n                        part_numbers_alt,\n                        nama,\n                        kategori,\n                        merek,\n                        satuan,\n                        stok_min,\n                        stok_awal,\n                        harga_beli,\n                        harga_jual,\n                        satuan_alt,\n                        isi_satuan_alt,\n                        harga_jual_alt,\n                        pajak_status,\n                        kode_pajak,\n                        keterangan\n                    )\n                    VALUES ?\n                `, [\n                    values.slice(i, i + 500)\n                ]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // TRANSACTIONS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(oldData.transactions) &&\n            oldData.transactions.length > 0\n        ) {\n\n            const values = oldData.transactions\n                .filter(t => safeInteger(t.id) !== null)\n                .map(t => [\n\n                    safeInteger(t.id),\n\n                    safeString(t.nomor_transaksi),\n\n                    safeDate(t.tanggal),\n\n                    safeInteger(t.sparepart_id),\n\n                    t.custom_item || null,\n\n                    safeString(t.part_numbers_alt),\n\n                    safeString(t.merek),\n\n                    safeString(t.jenis),\n\n                    safeNumber(t.jumlah),\n\n                    safeString(t.satuan),\n\n                    safeNumber(t.jumlah_dasar),\n\n                    safeNumber(t.harga_satuan),\n\n                    safeString(t.tujuan),\n\n                    safeString(t.keterangan),\n\n                    safeString(t.source),\n\n                    safeString(t.kasir),\n\n                    safeString(t.status_bayar),\n\n                    safeString(t.metode_bayar),\n\n                    safeNumber(t.bayar_tunai),\n\n                    safeNumber(t.transfer_amount),\n\n                    safeNumber(t.kembalian_diberikan),\n\n                    safeNumber(t.diskon),\n\n                    t.tanggal_lunas\n                        ? safeDate(t.tanggal_lunas)\n                        : null\n                ]);\n\n            for (let i = 0; i < values.length; i += 500) {\n\n                await pool.query(`\n                    INSERT IGNORE INTO transactions\n                    (\n                        id,\n                        nomor_transaksi,\n                        tanggal,\n                        sparepart_id,\n                        custom_item,\n                        part_numbers_alt,\n                        merek,\n                        jenis,\n                        jumlah,\n                        satuan,\n                        jumlah_dasar,\n                        harga_satuan,\n                        tujuan,\n                        keterangan,\n                        source,\n                        kasir,\n                        status_bayar,\n                        metode_bayar,\n                        bayar_tunai,\n                        transfer_amount,\n                        kembalian_diberikan,\n                        diskon,\n                        tanggal_lunas\n                    )\n                    VALUES ?\n                `, [\n                    values.slice(i, i + 500)\n                ]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // PARTNERS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(oldData.partners) &&\n            oldData.partners.length > 0\n        ) {\n\n            const values = oldData.partners\n                .filter(p => safeInteger(p.id) !== null)\n                .map(p => [\n                    safeInteger(p.id),\n                    safeString(p.nama),\n                    safeString(p.tipe),\n                    safeString(p.telp),\n                    safeString(p.alamat)\n                ]);\n\n            if (values.length > 0) {\n\n                await pool.query(`\n                    INSERT IGNORE INTO partners\n                    (\n                        id,\n                        nama,\n                        tipe,\n                        telp,\n                        alamat\n                    )\n                    VALUES ?\n                `, [values]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // CASH EXPENSES\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(oldData.cashExpenses) &&\n            oldData.cashExpenses.length > 0\n        ) {\n\n            const values = oldData.cashExpenses\n                .filter(e => safeInteger(e.id) !== null)\n                .map(e => [\n                    safeInteger(e.id),\n                    safeDate(e.tanggal),\n                    safeNumber(e.jumlah),\n                    safeString(e.keterangan),\n                    safeString(e.kasir)\n                ]);\n\n            if (values.length > 0) {\n\n                await pool.query(`\n                    INSERT IGNORE INTO cash_expenses\n                    (\n                        id,\n                        tanggal,\n                        jumlah,\n                        keterangan,\n                        kasir\n                    )\n                    VALUES ?\n                `, [values]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // CASH INFLOWS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(oldData.cashInflows) &&\n            oldData.cashInflows.length > 0\n        ) {\n\n            const values = oldData.cashInflows\n                .filter(i => safeInteger(i.id) !== null)\n                .map(i => [\n                    safeInteger(i.id),\n                    safeDate(i.tanggal),\n                    safeNumber(i.jumlah),\n                    safeString(i.keterangan),\n                    safeString(i.kasir)\n                ]);\n\n            if (values.length > 0) {\n\n                await pool.query(`\n                    INSERT IGNORE INTO cash_inflows\n                    (\n                        id,\n                        tanggal,\n                        jumlah,\n                        keterangan,\n                        kasir\n                    )\n                    VALUES ?\n                `, [values]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // TAX RECORDS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(oldData.taxRecords) &&\n            oldData.taxRecords.length > 0\n        ) {\n\n            const values = oldData.taxRecords\n                .filter(t => t.tax_id)\n                .map(t => [\n                    safeString(t.tax_id),\n                    safeInteger(t.trx_id, 0),\n                    safeDate(t.tanggal),\n                    safeString(t.nomor_transaksi),\n                    safeString(t.part_number),\n                    safeString(t.nama),\n                    safeString(t.kategori),\n                    safeString(t.merek),\n                    safeString(t.status_bayar),\n                    safeString(t.pelanggan),\n                    safeNumber(t.jumlah),\n                    safeString(t.satuan),\n                    safeNumber(t.harga_satuan),\n                    safeNumber(t.subtotal),\n                    safeNumber(t.persentase_pajak),\n                    safeNumber(t.nilai_pajak)\n                ]);\n\n            if (values.length > 0) {\n\n                await pool.query(`\n                    INSERT IGNORE INTO tax_records\n                    (\n                        tax_id,\n                        trx_id,\n                        tanggal,\n                        nomor_transaksi,\n                        part_number,\n                        nama,\n                        kategori,\n                        merek,\n                        status_bayar,\n                        pelanggan,\n                        jumlah,\n                        satuan,\n                        harga_satuan,\n                        subtotal,\n                        persentase_pajak,\n                        nilai_pajak\n                    )\n                    VALUES ?\n                `, [values]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // SETTINGS\n        // ----------------------------------------------------\n\n        if (\n            oldData.kasAwal !== undefined ||\n            oldData.users\n        ) {\n\n            await pool.query(`\n                UPDATE app_settings\n                SET\n                    kas_awal = ?,\n                    active_shift_start = ?,\n                    master_pajak = ?,\n                    users = ?,\n                    shift_sessions = ?\n                WHERE id = 1\n            `, [\n                safeNumber(oldData.kasAwal),\n                oldData.activeShiftStart || Date.now(),\n                JSON.stringify(oldData.masterPajak || []),\n                JSON.stringify(oldData.users || []),\n                JSON.stringify(Array.isArray(oldData.shiftSessions) ? oldData.shiftSessions : [])\n            ]);\n        }\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message: \'Migrasi data lama berhasil!\'\n        });\n\n    } catch (error) {\n\n        console.error(\'MIGRATE ERROR:\', error);\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// 3. GET ALL DATA\n// ============================================================\n\napp.get(\'/api/data\', async (req, res) => {\n\n    const now = Date.now();\n\n    if (\n        dataCache &&\n        (now - dataCacheTime) < DATA_CACHE_TTL\n    ) {\n        return res.json(dataCache);\n    }\n\n    let connection;\n\n    try {\n\n        connection = await pool.getConnection();\n\n        const [spareparts] = await connection.query(`\n            SELECT *\n            FROM spareparts\n        `);\n\n        const [transactions] = await connection.query(`\n            SELECT *\n            FROM transactions\n        `);\n\n        const [partners] = await connection.query(`\n            SELECT *\n            FROM partners\n        `);\n\n        const [cashExpenses] = await connection.query(`\n            SELECT *\n            FROM cash_expenses\n        `);\n\n        const [cashInflows] = await connection.query(`\n            SELECT *\n            FROM cash_inflows\n        `);\n\n        const [taxRecords] = await connection.query(`\n            SELECT *\n            FROM tax_records\n        `);\n\n        let returs = [];\n\n        try {\n\n            const [returResult] = await connection.query(`\n                SELECT *\n                FROM retur_records\n            `);\n\n            returs = returResult;\n\n        } catch (e) {\n\n            console.error(\n                \'Gagal membaca retur_records:\',\n                e.message\n            );\n        }\n\n        const [settings] = await connection.query(`\n            SELECT *\n            FROM app_settings\n            WHERE id = 1\n        `);\n\n        // ----------------------------------------------------\n        // DATE CONVERSION\n        // ----------------------------------------------------\n\n        transactions.forEach(t => {\n\n            if (t.tanggal instanceof Date) {\n                t.tanggal = t.tanggal.toISOString();\n            }\n\n            if (t.tanggal_lunas instanceof Date) {\n                t.tanggal_lunas =\n                    t.tanggal_lunas.toISOString();\n            }\n        });\n\n        cashExpenses.forEach(e => {\n\n            if (e.tanggal instanceof Date) {\n                e.tanggal =\n                    e.tanggal.toISOString();\n            }\n        });\n\n        cashInflows.forEach(i => {\n\n            if (i.tanggal instanceof Date) {\n                i.tanggal =\n                    i.tanggal.toISOString();\n            }\n        });\n\n        taxRecords.forEach(t => {\n\n            if (t.tanggal instanceof Date) {\n                t.tanggal =\n                    t.tanggal.toISOString();\n            }\n        });\n\n        // ----------------------------------------------------\n        // RETUR\n        // ----------------------------------------------------\n\n        const returRecords = returs.map(r => {\n\n            let items = safeJSON(r.items, []);\n\n            let exchangeItems =\n                safeJSON(r.exchange_items, []);\n\n            if (!Array.isArray(items)) {\n                items = [];\n            }\n\n            if (!Array.isArray(exchangeItems)) {\n                exchangeItems = [];\n            }\n\n            let tanggal = r.tanggal;\n\n            if (tanggal) {\n                tanggal = safeDate(tanggal).toISOString();\n            }\n\n            return {\n                ...r,\n\n                id: safeString(r.id),\n\n                parent_invoice:\n                    safeString(r.parent_invoice),\n\n                tanggal,\n\n                kasir:\n                    safeString(r.kasir),\n\n                pelanggan:\n                    safeString(r.pelanggan),\n\n                items,\n\n                exchange_items:\n                    exchangeItems\n            };\n        });\n\n        // ----------------------------------------------------\n        // SETTINGS\n        // ----------------------------------------------------\n\n        let masterPajak =\n            settings[0]?.master_pajak || [];\n\n        if (typeof masterPajak === \'string\') {\n\n            try {\n                masterPajak =\n                    JSON.parse(masterPajak);\n            } catch (e) {\n                masterPajak = [];\n            }\n        }\n\n        let users =\n            settings[0]?.users || [];\n\n        if (typeof users === \'string\') {\n\n            try {\n                users =\n                    JSON.parse(users);\n            } catch (e) {\n                users = [];\n            }\n        }\n\n        let shiftSessions =\n            settings[0]?.shift_sessions || [];\n\n        if (typeof shiftSessions === \'string\') {\n            try {\n                shiftSessions = JSON.parse(shiftSessions);\n            } catch (e) {\n                shiftSessions = [];\n            }\n        }\n\n        if (!Array.isArray(shiftSessions)) {\n            shiftSessions = [];\n        }\n\n        const result = {\n\n            spareparts,\n\n            transactions,\n\n            partners,\n\n            cashExpenses,\n\n            cashInflows,\n\n            taxRecords,\n\n            returRecords,\n\n            kasAwal:\n                settings[0]?.kas_awal || 0,\n\n            activeShiftStart:\n                settings[0]?.active_shift_start ||\n                Date.now(),\n\n            masterPajak,\n\n            users,\n\n            shiftSessions\n        };\n\n        dataCache = result;\n        dataCacheTime = Date.now();\n\n        res.json(result);\n\n    } catch (error) {\n\n        console.error(\n            \'Error GET DATA:\',\n            error\n        );\n\n        // Jangan mengembalikan cache lama\n        // jika database benar-benar gagal.\n        if (dataCache) {\n\n            console.log(\n                \'Mengembalikan data cache karena error database\'\n            );\n\n            return res.json(dataCache);\n        }\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n\n    } finally {\n\n        if (connection) {\n            connection.release();\n        }\n    }\n});\n\n// ============================================================\n// 4. SPAREPART\n// ============================================================\n\napp.post(\'/api/sparepart\', async (req, res) => {\n\n    try {\n\n        await pool.query(\n            \'INSERT INTO spareparts SET ?\',\n            req.body\n        );\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message: \'Sparepart disimpan\'\n        });\n\n    } catch (error) {\n\n        console.error(\n            \'Error sparepart:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\napp.post(\'/api/sparepart/bulk\', async (req, res) => {\n\n    const { items } = req.body;\n\n    try {\n\n        if (\n            Array.isArray(items) &&\n            items.length > 0\n        ) {\n\n            const values = items\n                .filter(sp => safeInteger(sp.id) !== null)\n                .map(sp => [\n                    safeInteger(sp.id),\n                    safeString(sp.kode),\n                    safeString(sp.part_number),\n                    safeString(sp.part_numbers_alt),\n                    safeString(sp.nama),\n                    safeString(sp.kategori, \'Umum\'),\n                    safeString(sp.merek),\n                    safeString(sp.satuan, \'Pcs\'),\n                    safeNumber(sp.stok_min),\n                    safeNumber(sp.stok_awal),\n                    safeNumber(sp.harga_beli),\n                    safeNumber(sp.harga_jual),\n                    safeString(sp.satuan_alt),\n                    safeNumber(sp.isi_satuan_alt),\n                    safeNumber(sp.harga_jual_alt),\n                    safeString(sp.pajak_status, \'Non Pajak\'),\n                    safeString(sp.kode_pajak),\n                    safeString(sp.keterangan)\n                ]);\n\n            for (let i = 0; i < values.length; i += 500) {\n\n                await pool.query(`\n                    INSERT IGNORE INTO spareparts\n                    (\n                        id,\n                        kode,\n                        part_number,\n                        part_numbers_alt,\n                        nama,\n                        kategori,\n                        merek,\n                        satuan,\n                        stok_min,\n                        stok_awal,\n                        harga_beli,\n                        harga_jual,\n                        satuan_alt,\n                        isi_satuan_alt,\n                        harga_jual_alt,\n                        pajak_status,\n                        kode_pajak,\n                        keterangan\n                    )\n                    VALUES ?\n                `, [\n                    values.slice(i, i + 500)\n                ]);\n            }\n        }\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message: \'Sparepart bulk disimpan\'\n        });\n\n    } catch (error) {\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\napp.put(\'/api/sparepart/:id\', async (req, res) => {\n\n    const id = safeInteger(req.params.id);\n\n    if (id === null) {\n\n        return res.status(400).json({\n            success: false,\n            error: \'ID sparepart tidak valid\'\n        });\n    }\n\n    try {\n\n        await pool.query(\n            \'UPDATE spareparts SET ? WHERE id = ?\',\n            [\n                req.body,\n                id\n            ]\n        );\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message: \'Sparepart diupdate\'\n        });\n\n    } catch (error) {\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\napp.delete(\'/api/sparepart/:id\', async (req, res) => {\n\n    const id = safeInteger(req.params.id);\n\n    if (id === null) {\n\n        return res.status(400).json({\n            success: false,\n            error: \'ID sparepart tidak valid\'\n        });\n    }\n\n    try {\n\n        await pool.query(\n            \'DELETE FROM spareparts WHERE id = ?\',\n            [id]\n        );\n\n        await pool.query(\n            \'DELETE FROM transactions WHERE sparepart_id = ?\',\n            [id]\n        );\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message: \'Sparepart dihapus\'\n        });\n\n    } catch (error) {\n\n        console.error(\n            \'Error hapus sparepart:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// 5. TRANSAKSI\n// ============================================================\n\napp.post(\'/api/transactions\', async (req, res) => {\n\n    const {\n        transactions,\n        taxRecords\n    } = req.body || {};\n\n    try {\n\n        // ----------------------------------------------------\n        // TRANSACTIONS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(transactions) &&\n            transactions.length > 0\n        ) {\n\n            const values = transactions\n                .filter(t => safeInteger(t.id) !== null)\n                .map(t => [\n\n                    safeInteger(t.id),\n\n                    safeString(t.nomor_transaksi),\n\n                    safeDate(t.tanggal),\n\n                    safeInteger(t.sparepart_id),\n\n                    t.custom_item || null,\n\n                    safeString(t.part_numbers_alt),\n\n                    safeString(t.merek),\n\n                    safeString(t.jenis),\n\n                    safeNumber(t.jumlah),\n\n                    safeString(t.satuan),\n\n                    safeNumber(t.jumlah_dasar),\n\n                    safeNumber(t.harga_satuan),\n\n                    safeString(t.tujuan),\n\n                    safeString(t.keterangan),\n\n                    safeString(t.source),\n\n                    safeString(t.kasir),\n\n                    safeString(t.status_bayar),\n\n                    safeString(t.metode_bayar),\n\n                    safeNumber(t.bayar_tunai),\n\n                    safeNumber(t.transfer_amount),\n\n                    safeNumber(t.kembalian_diberikan),\n\n                    safeNumber(t.diskon),\n\n                    t.tanggal_lunas\n                        ? safeDate(t.tanggal_lunas)\n                        : null\n                ]);\n\n            if (values.length > 0) {\n\n                await pool.query(`\n                    INSERT IGNORE INTO transactions\n                    (\n                        id,\n                        nomor_transaksi,\n                        tanggal,\n                        sparepart_id,\n                        custom_item,\n                        part_numbers_alt,\n                        merek,\n                        jenis,\n                        jumlah,\n                        satuan,\n                        jumlah_dasar,\n                        harga_satuan,\n                        tujuan,\n                        keterangan,\n                        source,\n                        kasir,\n                        status_bayar,\n                        metode_bayar,\n                        bayar_tunai,\n                        transfer_amount,\n                        kembalian_diberikan,\n                        diskon,\n                        tanggal_lunas\n                    )\n                    VALUES ?\n                `, [values]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // TAX RECORDS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(taxRecords) &&\n            taxRecords.length > 0\n        ) {\n\n            const values = taxRecords\n                .filter(t => t && t.tax_id)\n                .map(t => [\n\n                    safeString(t.tax_id),\n\n                    safeInteger(t.trx_id, 0),\n\n                    safeDate(t.tanggal),\n\n                    safeString(t.nomor_transaksi),\n\n                    safeString(t.part_number),\n\n                    safeString(t.nama),\n\n                    safeString(t.kategori),\n\n                    safeString(t.merek),\n\n                    safeString(t.status_bayar),\n\n                    safeString(t.pelanggan),\n\n                    safeNumber(t.jumlah),\n\n                    safeString(t.satuan),\n\n                    safeNumber(t.harga_satuan),\n\n                    safeNumber(t.subtotal),\n\n                    safeNumber(t.persentase_pajak),\n\n                    safeNumber(t.nilai_pajak)\n                ]);\n\n            if (values.length > 0) {\n\n                await pool.query(`\n                    INSERT IGNORE INTO tax_records\n                    (\n                        tax_id,\n                        trx_id,\n                        tanggal,\n                        nomor_transaksi,\n                        part_number,\n                        nama,\n                        kategori,\n                        merek,\n                        status_bayar,\n                        pelanggan,\n                        jumlah,\n                        satuan,\n                        harga_satuan,\n                        subtotal,\n                        persentase_pajak,\n                        nilai_pajak\n                    )\n                    VALUES ?\n                `, [values]);\n            }\n        }\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message: \'Transaksi disimpan\'\n        });\n\n    } catch (error) {\n\n        console.error(\n            \'Error transaksi:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// SIMPAN RETUR\n// Kompatibel dengan beberapa format request dari frontend\n// ============================================================\napp.post(\'/api/transaction/retur\', async (req, res) => {\n    const body = req.body || {};\n\n    console.log(\'==========================================\');\n    console.log(\'[RETUR] Request diterima\');\n    console.log(\'[RETUR] Body keys:\', Object.keys(body));\n    console.log(\'[RETUR] Body:\', JSON.stringify(body, null, 2));\n    console.log(\'==========================================\');\n\n    /*\n     * Frontend bisa saja mengirim:\n     *\n     * {\n     *   returRecord: {...},\n     *   transactions: [...],\n     *   taxRecords: [...]\n     * }\n     *\n     * atau:\n     *\n     * {\n     *   retur: {...},\n     *   transactions: [...],\n     *   taxRecords: [...]\n     * }\n     *\n     * atau langsung:\n     *\n     * {\n     *   id: "...",\n     *   parent_invoice: "...",\n     *   items: [...]\n     * }\n     */\n\n    let returRecord =\n        body.returRecord ||\n        body.retur ||\n        body.returnRecord ||\n        body.return ||\n        null;\n\n    let transactions =\n        body.transactions ||\n        body.transaction ||\n        [];\n\n    let taxRecords =\n        body.taxRecords ||\n        body.tax_records ||\n        [];\n\n    // Jika frontend langsung mengirim object retur tanpa wrapper\n    if (!returRecord && body.id && (body.parent_invoice || body.parentInvoice)) {\n        returRecord = body;\n    }\n\n    // Pastikan array\n    if (!Array.isArray(transactions)) {\n        transactions = [];\n    }\n\n    if (!Array.isArray(taxRecords)) {\n        taxRecords = [];\n    }\n\n    // ============================================================\n    // VALIDASI RETUR\n    // ============================================================\n    if (!returRecord || typeof returRecord !== \'object\') {\n        console.error(\'[RETUR] returRecord tidak ditemukan.\');\n        console.error(\'[RETUR] Body yang diterima:\', body);\n\n        return res.status(400).json({\n            success: false,\n            error: \'Data retur tidak valid: returRecord tidak ditemukan\',\n            receivedKeys: Object.keys(body)\n        });\n    }\n\n    // ============================================================\n    // NORMALISASI NAMA FIELD\n    // ============================================================\n    const returId =\n        returRecord.id ||\n        returRecord.retur_id ||\n        returRecord.returId;\n\n    const parentInvoice =\n        returRecord.parent_invoice ||\n        returRecord.parentInvoice ||\n        returRecord.invoice ||\n        returRecord.no_invoice ||\n        returRecord.nomor_transaksi;\n\n    const tanggal =\n        returRecord.tanggal ||\n        returRecord.date ||\n        new Date();\n\n    const kasir =\n        returRecord.kasir ||\n        returRecord.user ||\n        returRecord.operator ||\n        \'\';\n\n    const pelanggan =\n        returRecord.pelanggan ||\n        returRecord.customer ||\n        returRecord.nama_pelanggan ||\n        \'\';\n\n    const items =\n        returRecord.items ||\n        returRecord.retur_items ||\n        returRecord.return_items ||\n        [];\n\n    const exchangeItems =\n        returRecord.exchange_items ||\n        returRecord.exchangeItems ||\n        returRecord.tukar_items ||\n        returRecord.tukarItems ||\n        [];\n\n    // ============================================================\n    // VALIDASI FIELD WAJIB\n    // ============================================================\n    if (!returId) {\n        return res.status(400).json({\n            success: false,\n            error: \'Data retur tidak valid: ID retur tidak ditemukan\'\n        });\n    }\n\n    if (!parentInvoice) {\n        return res.status(400).json({\n            success: false,\n            error: \'Data retur tidak valid: nomor invoice tidak ditemukan\'\n        });\n    }\n\n    // Pastikan items berbentuk array\n    const normalizedItems = Array.isArray(items) ? items : [];\n\n    const normalizedExchangeItems =\n        Array.isArray(exchangeItems) ? exchangeItems : [];\n\n    // ============================================================\n    // DATABASE TRANSACTION\n    // ============================================================\n    let conn;\n\n    try {\n        conn = await pool.getConnection();\n\n        await conn.beginTransaction();\n\n        // ========================================================\n        // SIMPAN RETUR RECORD\n        // ========================================================\n        await conn.query(\n            `\n            INSERT INTO retur_records\n            (\n                id,\n                parent_invoice,\n                tanggal,\n                kasir,\n                pelanggan,\n                items,\n                exchange_items\n            )\n            VALUES (?, ?, ?, ?, ?, ?, ?)\n            ON DUPLICATE KEY UPDATE\n                parent_invoice = VALUES(parent_invoice),\n                tanggal = VALUES(tanggal),\n                kasir = VALUES(kasir),\n                pelanggan = VALUES(pelanggan),\n                items = VALUES(items),\n                exchange_items = VALUES(exchange_items)\n            `,\n            [\n                String(returId),\n                String(parentInvoice),\n                new Date(tanggal),\n                String(kasir),\n                String(pelanggan),\n                JSON.stringify(normalizedItems),\n                JSON.stringify(normalizedExchangeItems)\n            ]\n        );\n\n        // ========================================================\n        // SIMPAN TRANSAKSI RETUR / TRANSAKSI TAMBAHAN\n        // ========================================================\n        if (transactions.length > 0) {\n\n            const values = transactions\n                .filter(t => t && t.id != null)\n                .map(t => [\n                    parseInt(t.id),\n\n                    t.nomor_transaksi ||\n                    t.nomorTransaksi ||\n                    String(returId),\n\n                    t.tanggal || new Date(),\n\n                    t.sparepart_id ??\n                    t.sparepartId ??\n                    null,\n\n                    t.custom_item ||\n                    t.customItem ||\n                    null,\n\n                    t.part_numbers_alt ||\n                    t.partNumbersAlt ||\n                    \'\',\n\n                    t.merek || \'\',\n\n                    t.jenis || \'Keluar\',\n\n                    Number(t.jumlah) || 0,\n\n                    t.satuan || \'Pcs\',\n\n                    Number(t.jumlah_dasar ?? t.jumlahDasar) || 0,\n\n                    Number(t.harga_satuan ?? t.hargaSatuan) || 0,\n\n                    t.tujuan || \'\',\n\n                    t.keterangan || \'\',\n\n                    t.source || \'retur\',\n\n                    t.kasir || kasir || \'\',\n\n                    t.status_bayar || \'Lunas\',\n\n                    t.metode_bayar || \'\',\n\n                    Number(t.bayar_tunai) || 0,\n\n                    Number(t.transfer_amount) || 0,\n\n                    Number(t.kembalian_diberikan) || 0,\n\n                    Number(t.diskon) || 0,\n\n                    t.tanggal_lunas || null\n                ]);\n\n            if (values.length > 0) {\n                await conn.query(\n                    `\n                    INSERT IGNORE INTO transactions\n                    (\n                        id,\n                        nomor_transaksi,\n                        tanggal,\n                        sparepart_id,\n                        custom_item,\n                        part_numbers_alt,\n                        merek,\n                        jenis,\n                        jumlah,\n                        satuan,\n                        jumlah_dasar,\n                        harga_satuan,\n                        tujuan,\n                        keterangan,\n                        source,\n                        kasir,\n                        status_bayar,\n                        metode_bayar,\n                        bayar_tunai,\n                        transfer_amount,\n                        kembalian_diberikan,\n                        diskon,\n                        tanggal_lunas\n                    )\n                    VALUES ?\n                    `,\n                    [values]\n                );\n            }\n        }\n\n        // ========================================================\n        // SIMPAN TAX RECORD\n        // ========================================================\n        if (taxRecords.length > 0) {\n\n            const values = taxRecords\n                .filter(t => t && t.tax_id != null)\n                .map(t => [\n                    String(t.tax_id),\n\n                    parseInt(\n                        t.trx_id ??\n                        t.trxId ??\n                        0\n                    ),\n\n                    t.tanggal || new Date(),\n\n                    t.nomor_transaksi ||\n                    t.nomorTransaksi ||\n                    String(returId),\n\n                    t.part_number ||\n                    t.partNumber ||\n                    \'\',\n\n                    t.nama || \'\',\n\n                    t.kategori || \'\',\n\n                    t.merek || \'\',\n\n                    t.status_bayar ||\n                    t.statusBayar ||\n                    \'Lunas\',\n\n                    t.pelanggan ||\n                    t.customer ||\n                    pelanggan ||\n                    \'\',\n\n                    Number(t.jumlah) || 0,\n\n                    t.satuan || \'Pcs\',\n\n                    Number(\n                        t.harga_satuan ??\n                        t.hargaSatuan\n                    ) || 0,\n\n                    Number(t.subtotal) || 0,\n\n                    Number(\n                        t.persentase_pajak ??\n                        t.persentasePajak\n                    ) || 0,\n\n                    Number(\n                        t.nilai_pajak ??\n                        t.nilaiPajak\n                    ) || 0\n                ]);\n\n            if (values.length > 0) {\n                await conn.query(\n                    `\n                    INSERT IGNORE INTO tax_records\n                    (\n                        tax_id,\n                        trx_id,\n                        tanggal,\n                        nomor_transaksi,\n                        part_number,\n                        nama,\n                        kategori,\n                        merek,\n                        status_bayar,\n                        pelanggan,\n                        jumlah,\n                        satuan,\n                        harga_satuan,\n                        subtotal,\n                        persentase_pajak,\n                        nilai_pajak\n                    )\n                    VALUES ?\n                    `,\n                    [values]\n                );\n            }\n        }\n\n        // ========================================================\n        // VERIFIKASI RETUR\n        // ========================================================\n        const [verify] = await conn.query(\n            `\n            SELECT\n                id,\n                parent_invoice,\n                tanggal\n            FROM retur_records\n            WHERE id = ?\n            LIMIT 1\n            `,\n            [String(returId)]\n        );\n\n        if (verify.length === 0) {\n            await conn.rollback();\n\n            return res.status(500).json({\n                success: false,\n                error: \'Verifikasi gagal: data retur tidak tersimpan di database\'\n            });\n        }\n\n        // ========================================================\n        // COMMIT\n        // ========================================================\n        await conn.commit();\n\n        invalidateDataCache();\n\n        console.log(\n            \'[RETUR] Berhasil disimpan:\',\n            String(returId),\n            \'Invoice:\',\n            String(parentInvoice)\n        );\n\n        return res.json({\n            success: true,\n            message: \'Retur berhasil disimpan ke server\',\n            returId: String(returId),\n            parentInvoice: String(parentInvoice)\n        });\n\n    } catch (error) {\n\n        if (conn) {\n            try {\n                await conn.rollback();\n            } catch (rollbackError) {\n                console.error(\n                    \'[RETUR] Rollback error:\',\n                    rollbackError\n                );\n            }\n        }\n\n        console.error(\n            \'[RETUR] ERROR:\',\n            error\n        );\n\n        return res.status(500).json({\n            success: false,\n            error: \'Gagal menyimpan retur: \' + error.message\n        });\n\n    } finally {\n\n        if (conn) {\n            conn.release();\n        }\n    }\n});\n// ============================================================\n// 7. HAPUS INVOICE\n// ============================================================\n\napp.post(\'/api/transaction/delete-invoice\', async (req, res) => {\n\n    const trxId =\n        req.body?.trxId;\n\n    if (\n        trxId === undefined ||\n        trxId === null ||\n        String(trxId).trim() === \'\'\n    ) {\n\n        return res.status(400).json({\n            success: false,\n            error: \'Nomor invoice tidak valid\'\n        });\n    }\n\n    try {\n\n        const [returs] =\n            await pool.query(`\n                SELECT id\n                FROM retur_records\n                WHERE parent_invoice = ?\n            `, [String(trxId)]);\n\n        await pool.query(`\n            DELETE FROM transactions\n            WHERE nomor_transaksi = ?\n        `, [String(trxId)]);\n\n        await pool.query(`\n            DELETE FROM tax_records\n            WHERE nomor_transaksi = ?\n        `, [String(trxId)]);\n\n        if (returs.length > 0) {\n\n            for (const r of returs) {\n\n                await pool.query(`\n                    DELETE FROM transactions\n                    WHERE nomor_transaksi = ?\n                `, [String(r.id)]);\n\n                await pool.query(`\n                    DELETE FROM tax_records\n                    WHERE nomor_transaksi = ?\n                `, [String(r.id)]);\n            }\n        }\n\n        await pool.query(`\n            DELETE FROM retur_records\n            WHERE parent_invoice = ?\n        `, [String(trxId)]);\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Invoice & retur berhasil dihapus dari server\'\n        });\n\n    } catch (error) {\n\n        console.error(\n            \'Error hapus invoice:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// 8. HAPUS RETUR\n// ============================================================\n\napp.post(\'/api/transaction/delete-retur\', async (req, res) => {\n\n    const returId =\n        req.body?.returId;\n\n    if (\n        returId === undefined ||\n        returId === null ||\n        String(returId).trim() === \'\'\n    ) {\n\n        return res.status(400).json({\n            success: false,\n            error: \'ID retur tidak valid\'\n        });\n    }\n\n    try {\n\n        await pool.query(`\n            DELETE FROM transactions\n            WHERE nomor_transaksi = ?\n        `, [String(returId)]);\n\n        await pool.query(`\n            DELETE FROM tax_records\n            WHERE nomor_transaksi = ?\n        `, [String(returId)]);\n\n        await pool.query(`\n            DELETE FROM retur_records\n            WHERE id = ?\n        `, [String(returId)]);\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Retur berhasil dihapus dari server\'\n        });\n\n    } catch (error) {\n\n        console.error(\n            \'Error hapus retur:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// 9. HAPUS TRANSAKSI\n// ============================================================\n\napp.post(\'/api/transaction/delete\', async (req, res) => {\n\n    const cleanId =\n        safeInteger(req.body?.id);\n\n    if (cleanId === null) {\n\n        return res.status(400).json({\n            success: false,\n            error: \'ID transaksi tidak valid\'\n        });\n    }\n\n    try {\n\n        await pool.query(`\n            DELETE FROM transactions\n            WHERE id = ?\n        `, [cleanId]);\n\n        await pool.query(`\n            DELETE FROM tax_records\n            WHERE trx_id = ?\n        `, [cleanId]);\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Transaksi berhasil dihapus dari server\'\n        });\n\n    } catch (error) {\n\n        console.error(\n            \'Error hapus transaksi:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// 10. EDIT STRUK\n// ============================================================\n\napp.put(\'/api/transaction/edit-struk\', async (req, res) => {\n\n    const invoice =\n        req.body?.invoice;\n\n    const items =\n        Array.isArray(req.body?.items)\n            ? req.body.items\n            : [];\n\n    const diskon =\n        req.body?.diskon;\n\n    if (\n        invoice === undefined ||\n        invoice === null ||\n        String(invoice).trim() === \'\'\n    ) {\n\n        return res.status(400).json({\n            success: false,\n            error: \'Invoice tidak valid\'\n        });\n    }\n\n    const conn =\n        await pool.getConnection();\n\n    try {\n\n        await conn.beginTransaction();\n\n        // ----------------------------------------------------\n        // Ambil ID asli dari database\n        // ----------------------------------------------------\n\n        const [trxRows] =\n            await conn.query(`\n                SELECT\n                    id,\n                    nomor_transaksi\n                FROM transactions\n                WHERE nomor_transaksi = ?\n                ORDER BY id ASC\n            `, [\n                String(invoice)\n            ]);\n\n        if (trxRows.length === 0) {\n\n            await conn.rollback();\n\n            return res.status(404).json({\n                success: false,\n                error:\n                    \'Invoice tidak ditemukan di database\'\n            });\n        }\n\n        // ----------------------------------------------------\n        // Update berdasarkan index database\n        // ----------------------------------------------------\n\n        for (\n            let i = 0;\n            i < trxRows.length;\n            i++\n        ) {\n\n            if (\n                i >= items.length\n            ) {\n                continue;\n            }\n\n            const dbId =\n                safeInteger(\n                    trxRows[i].id\n                );\n\n            if (dbId === null) {\n                continue;\n            }\n\n            const newHarga =\n                safeNumber(\n                    items[i]?.harga_satuan,\n                    0\n                );\n\n            // ------------------------------------------------\n            // Update transaksi\n            // ------------------------------------------------\n\n            await conn.query(`\n                UPDATE transactions\n                SET harga_satuan = ?\n                WHERE id = ?\n            `, [\n                newHarga,\n                dbId\n            ]);\n\n            // ------------------------------------------------\n            // Update pajak\n            // ------------------------------------------------\n\n            const [taxRows] =\n                await conn.query(`\n                    SELECT\n                        tax_id,\n                        jumlah,\n                        persentase_pajak\n                    FROM tax_records\n                    WHERE trx_id = ?\n                `, [\n                    dbId\n                ]);\n\n            for (\n                const tax of taxRows\n            ) {\n\n                const jumlah =\n                    safeNumber(\n                        tax.jumlah\n                    );\n\n                const persen =\n                    safeNumber(\n                        tax.persentase_pajak\n                    );\n\n                const newSubtotal =\n                    newHarga * jumlah;\n\n                const newNilaiPajak =\n                    (\n                        newSubtotal *\n                        persen\n                    ) / 100;\n\n                await conn.query(`\n                    UPDATE tax_records\n                    SET\n                        harga_satuan = ?,\n                        subtotal = ?,\n                        nilai_pajak = ?\n                    WHERE tax_id = ?\n                `, [\n                    newHarga,\n                    newSubtotal,\n                    newNilaiPajak,\n                    String(tax.tax_id)\n                ]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // Update diskon\n        // ----------------------------------------------------\n\n        if (\n            diskon !== undefined &&\n            diskon !== null &&\n            trxRows.length > 0\n        ) {\n\n            const firstId =\n                safeInteger(\n                    trxRows[0].id\n                );\n\n            if (firstId !== null) {\n\n                await conn.query(`\n                    UPDATE transactions\n                    SET diskon = ?\n                    WHERE id = ?\n                `, [\n                    safeNumber(diskon),\n                    firstId\n                ]);\n            }\n        }\n\n        await conn.commit();\n\n        invalidateDataCache();\n\n        console.log(\n            \'[EDIT STRUK] SUCCESS:\',\n            invoice\n        );\n\n        res.json({\n            success: true,\n            message:\n                \'Struk berhasil diedit\',\n            invoice:\n                String(invoice)\n        });\n\n    } catch (error) {\n\n        try {\n            await conn.rollback();\n        } catch (e) {}\n\n        console.error(\n            \'[EDIT STRUK] ERROR:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error:\n                \'Gagal menyimpan edit struk: \' +\n                error.message\n        });\n\n    } finally {\n\n        conn.release();\n    }\n});\n\n// ============================================================\n// 11. PAYOFF / PELUNASAN BON\n// ============================================================\n\napp.put(\'/api/transactions/payoff\', async (req, res) => {\n\n    const trxId =\n        req.body?.trxId;\n\n    if (\n        trxId === undefined ||\n        trxId === null ||\n        String(trxId).trim() === \'\'\n    ) {\n\n        return res.status(400).json({\n            success: false,\n            error: \'Nomor invoice tidak valid\'\n        });\n    }\n\n    const conn =\n        await pool.getConnection();\n\n    try {\n\n        await conn.beginTransaction();\n\n        const [trxRows] =\n            await conn.query(`\n                SELECT *\n                FROM transactions\n                WHERE nomor_transaksi = ?\n            `, [\n                String(trxId)\n            ]);\n\n        if (trxRows.length === 0) {\n\n            await conn.rollback();\n\n            return res.status(404).json({\n                success: false,\n                error:\n                    \'Invoice tidak ditemukan\'\n            });\n        }\n\n        const isAlreadyLunas =\n            trxRows.every(\n                t =>\n                    t.status_bayar === \'Lunas\'\n            );\n\n        if (isAlreadyLunas) {\n\n            await conn.rollback();\n\n            return res.status(400).json({\n                success: false,\n                error:\n                    \'Invoice sudah lunas\'\n            });\n        }\n\n        const total =\n            trxRows.reduce(\n                (sum, t) =>\n                    sum +\n                    (\n                        safeNumber(\n                            t.harga_satuan\n                        ) *\n                        safeNumber(\n                            t.jumlah\n                        )\n                    ),\n                0\n            )\n            -\n            safeNumber(\n                trxRows[0].diskon\n            );\n\n        await conn.query(`\n            UPDATE transactions\n            SET\n                status_bayar = \'Lunas\',\n                keterangan = \'Bon (Lunas)\',\n                tanggal_lunas = NOW()\n            WHERE nomor_transaksi = ?\n        `, [\n            String(trxId)\n        ]);\n\n        await conn.query(`\n            UPDATE tax_records\n            SET status_bayar = \'Lunas\'\n            WHERE nomor_transaksi = ?\n        `, [\n            String(trxId)\n        ]);\n\n        await conn.query(`\n            INSERT INTO cash_inflows\n            (\n                id,\n                tanggal,\n                jumlah,\n                keterangan,\n                kasir\n            )\n            VALUES (?, ?, ?, ?, ?)\n        `, [\n            Date.now(),\n            new Date(),\n            total,\n            \'Pelunasan Bon: \' +\n                String(trxId),\n            trxRows[0].kasir ||\n                \'Admin\'\n        ]);\n\n        await conn.commit();\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Piutang berhasil dilunasi\',\n            total\n        });\n\n    } catch (error) {\n\n        try {\n            await conn.rollback();\n        } catch (e) {}\n\n        console.error(\n            \'Error payoff:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n\n    } finally {\n\n        conn.release();\n    }\n});\n\n// ============================================================\n// 12. EDIT TRANSAKSI MANUAL\n// ============================================================\n\napp.put(\'/api/transaction/:id\', async (req, res) => {\n\n    const transactionId =\n        safeInteger(req.params.id);\n\n    if (\n        transactionId === null ||\n        transactionId <= 0\n    ) {\n\n        return res.status(400).json({\n            success: false,\n            error:\n                \'ID transaksi tidak valid\'\n        });\n    }\n\n    const updatedData =\n        req.body || {};\n\n    try {\n\n        await pool.query(`\n            UPDATE transactions\n            SET\n                sparepart_id = ?,\n                custom_item = ?,\n                jenis = ?,\n                jumlah = ?,\n                satuan = ?,\n                jumlah_dasar = ?,\n                tujuan = ?,\n                keterangan = ?\n            WHERE id = ?\n        `, [\n\n            safeInteger(\n                updatedData.sparepart_id\n            ),\n\n            updatedData.custom_item ||\n                null,\n\n            safeString(\n                updatedData.jenis\n            ),\n\n            safeNumber(\n                updatedData.jumlah\n            ),\n\n            safeString(\n                updatedData.satuan\n            ),\n\n            safeNumber(\n                updatedData.jumlah_dasar\n            ),\n\n            safeString(\n                updatedData.tujuan\n            ),\n\n            safeString(\n                updatedData.keterangan\n            ),\n\n            transactionId\n        ]);\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Transaksi berhasil diupdate\'\n        });\n\n    } catch (error) {\n\n        console.error(\n            \'Error edit transaksi:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// 13. HAPUS KAS KELUAR\n// ============================================================\n\napp.post(\'/api/cash-expense/delete\', async (req, res) => {\n\n    const id =\n        safeInteger(\n            req.body?.id\n        );\n\n    if (id === null) {\n\n        return res.status(400).json({\n            success: false,\n            error: \'ID kas tidak valid\'\n        });\n    }\n\n    try {\n\n        await pool.query(`\n            DELETE FROM cash_expenses\n            WHERE id = ?\n        `, [id]);\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Pengeluaran kas berhasil dihapus\'\n        });\n\n    } catch (error) {\n\n        console.error(\n            \'Error hapus cash expense:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// 14. HAPUS KAS MASUK\n// ============================================================\n\napp.post(\'/api/cash-inflow/delete\', async (req, res) => {\n\n    const id =\n        safeInteger(\n            req.body?.id\n        );\n\n    if (id === null) {\n\n        return res.status(400).json({\n            success: false,\n            error: \'ID kas tidak valid\'\n        });\n    }\n\n    try {\n\n        await pool.query(`\n            DELETE FROM cash_inflows\n            WHERE id = ?\n        `, [id]);\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Tambahan kas berhasil dihapus\'\n        });\n\n    } catch (error) {\n\n        console.error(\n            \'Error hapus cash inflow:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// 15. PARTNER\n// ============================================================\n\napp.post(\'/api/partner\', async (req, res) => {\n\n    try {\n\n        await pool.query(\n            \'INSERT INTO partners SET ?\',\n            req.body\n        );\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Partner disimpan\'\n        });\n\n    } catch (error) {\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\napp.put(\'/api/partner/:id\', async (req, res) => {\n\n    const id =\n        safeInteger(\n            req.params.id\n        );\n\n    if (id === null) {\n\n        return res.status(400).json({\n            success: false,\n            error:\n                \'ID partner tidak valid\'\n        });\n    }\n\n    try {\n\n        await pool.query(\n            \'UPDATE partners SET ? WHERE id = ?\',\n            [\n                req.body,\n                id\n            ]\n        );\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Partner diupdate\'\n        });\n\n    } catch (error) {\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\napp.delete(\'/api/partner/:id\', async (req, res) => {\n\n    const id =\n        safeInteger(\n            req.params.id\n        );\n\n    if (id === null) {\n\n        return res.status(400).json({\n            success: false,\n            error:\n                \'ID partner tidak valid\'\n        });\n    }\n\n    try {\n\n        await pool.query(\n            \'DELETE FROM partners WHERE id = ?\',\n            [id]\n        );\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Partner dihapus\'\n        });\n\n    } catch (error) {\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// 16. SETTINGS\n// ============================================================\n\napp.put(\'/api/settings\', async (req, res) => {\n\n    const {\n        kasAwal,\n        activeShiftStart,\n        masterPajak,\n        users,\n        shiftSessions,\n        cashExpenses,\n        cashInflows\n    } = req.body || {};\n\n    try {\n\n        await pool.query(`\n            UPDATE app_settings\n            SET\n                kas_awal = ?,\n                active_shift_start = ?,\n                master_pajak = ?,\n                users = ?,\n                shift_sessions = ?\n            WHERE id = 1\n        `, [\n\n            safeNumber(\n                kasAwal\n            ),\n\n            activeShiftStart ||\n                Date.now(),\n\n            JSON.stringify(\n                Array.isArray(masterPajak)\n                    ? masterPajak\n                    : []\n            ),\n\n            JSON.stringify(\n                Array.isArray(users)\n                    ? users\n                    : []\n            ),\n\n            JSON.stringify(\n                Array.isArray(shiftSessions)\n                    ? shiftSessions\n                    : []\n            )\n        ]);\n\n        // ----------------------------------------------------\n        // CASH EXPENSES\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(cashExpenses) &&\n            cashExpenses.length > 0\n        ) {\n\n            const values =\n                cashExpenses\n                    .filter(\n                        e =>\n                            safeInteger(e.id) !== null\n                    )\n                    .map(e => [\n                        safeInteger(e.id),\n                        safeDate(e.tanggal),\n                        safeNumber(e.jumlah),\n                        safeString(e.keterangan),\n                        safeString(e.kasir)\n                    ]);\n\n            if (values.length > 0) {\n\n                await pool.query(`\n                    INSERT INTO cash_expenses\n                    (\n                        id,\n                        tanggal,\n                        jumlah,\n                        keterangan,\n                        kasir\n                    )\n                    VALUES ?\n                    ON DUPLICATE KEY UPDATE\n                        tanggal = VALUES(tanggal),\n                        jumlah = VALUES(jumlah),\n                        keterangan = VALUES(keterangan),\n                        kasir = VALUES(kasir)\n                `, [values]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // CASH INFLOWS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(cashInflows) &&\n            cashInflows.length > 0\n        ) {\n\n            const values =\n                cashInflows\n                    .filter(\n                        i =>\n                            safeInteger(i.id) !== null\n                    )\n                    .map(i => [\n                        safeInteger(i.id),\n                        safeDate(i.tanggal),\n                        safeNumber(i.jumlah),\n                        safeString(i.keterangan),\n                        safeString(i.kasir)\n                    ]);\n\n            if (values.length > 0) {\n\n                await pool.query(`\n                    INSERT INTO cash_inflows\n                    (\n                        id,\n                        tanggal,\n                        jumlah,\n                        keterangan,\n                        kasir\n                    )\n                    VALUES ?\n                    ON DUPLICATE KEY UPDATE\n                        tanggal = VALUES(tanggal),\n                        jumlah = VALUES(jumlah),\n                        keterangan = VALUES(keterangan),\n                        kasir = VALUES(kasir)\n                `, [values]);\n            }\n        }\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Settings berhasil disimpan\'\n        });\n\n    } catch (error) {\n\n        console.error(\n            \'Error settings:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n    }\n});\n\n// ============================================================\n// 17. RESTORE DATA\n// ============================================================\n// CATATAN:\n// Endpoint ini TIDAK dipanggil otomatis.\n// Data hanya dihapus jika frontend benar-benar\n// memanggil POST /api/restore.\n// ============================================================\n\napp.post(\'/api/restore\', async (req, res) => {\n\n    const data =\n        req.body || {};\n\n    const conn =\n        await pool.getConnection();\n\n    try {\n\n        await conn.beginTransaction();\n\n        // ----------------------------------------------------\n        // HAPUS DATA LAMA\n        // ----------------------------------------------------\n\n        await conn.query(\n            \'DELETE FROM spareparts\'\n        );\n\n        await conn.query(\n            \'DELETE FROM transactions\'\n        );\n\n        await conn.query(\n            \'DELETE FROM partners\'\n        );\n\n        await conn.query(\n            \'DELETE FROM cash_expenses\'\n        );\n\n        await conn.query(\n            \'DELETE FROM cash_inflows\'\n        );\n\n        await conn.query(\n            \'DELETE FROM tax_records\'\n        );\n\n        await conn.query(\n            \'DELETE FROM retur_records\'\n        );\n\n        // ----------------------------------------------------\n        // SPAREPART\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(data.spareparts) &&\n            data.spareparts.length > 0\n        ) {\n\n            const values =\n                data.spareparts\n                    .filter(\n                        sp =>\n                            safeInteger(sp.id) !== null\n                    )\n                    .map(sp => [\n                        safeInteger(sp.id),\n                        safeString(sp.kode),\n                        safeString(sp.part_number),\n                        safeString(sp.part_numbers_alt),\n                        safeString(sp.nama),\n                        safeString(sp.kategori, \'Umum\'),\n                        safeString(sp.merek),\n                        safeString(sp.satuan, \'Pcs\'),\n                        safeNumber(sp.stok_min),\n                        safeNumber(sp.stok_awal),\n                        safeNumber(sp.harga_beli),\n                        safeNumber(sp.harga_jual),\n                        safeString(sp.satuan_alt),\n                        safeNumber(sp.isi_satuan_alt),\n                        safeNumber(sp.harga_jual_alt),\n                        safeString(sp.pajak_status, \'Non Pajak\'),\n                        safeString(sp.kode_pajak),\n                        safeString(sp.keterangan)\n                    ]);\n\n            for (\n                let i = 0;\n                i < values.length;\n                i += 500\n            ) {\n\n                await conn.query(`\n                    INSERT INTO spareparts\n                    (\n                        id,\n                        kode,\n                        part_number,\n                        part_numbers_alt,\n                        nama,\n                        kategori,\n                        merek,\n                        satuan,\n                        stok_min,\n                        stok_awal,\n                        harga_beli,\n                        harga_jual,\n                        satuan_alt,\n                        isi_satuan_alt,\n                        harga_jual_alt,\n                        pajak_status,\n                        kode_pajak,\n                        keterangan\n                    )\n                    VALUES ?\n                `, [\n                    values.slice(\n                        i,\n                        i + 500\n                    )\n                ]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // TRANSACTIONS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(data.transactions) &&\n            data.transactions.length > 0\n        ) {\n\n            const values =\n                data.transactions\n                    .filter(\n                        t =>\n                            safeInteger(t.id) !== null\n                    )\n                    .map(t => [\n\n                        safeInteger(t.id),\n\n                        safeString(\n                            t.nomor_transaksi\n                        ),\n\n                        safeDate(\n                            t.tanggal\n                        ),\n\n                        safeInteger(\n                            t.sparepart_id\n                        ),\n\n                        t.custom_item || null,\n\n                        safeString(\n                            t.part_numbers_alt\n                        ),\n\n                        safeString(\n                            t.merek\n                        ),\n\n                        safeString(\n                            t.jenis\n                        ),\n\n                        safeNumber(\n                            t.jumlah\n                        ),\n\n                        safeString(\n                            t.satuan\n                        ),\n\n                        safeNumber(\n                            t.jumlah_dasar\n                        ),\n\n                        safeNumber(\n                            t.harga_satuan\n                        ),\n\n                        safeString(\n                            t.tujuan\n                        ),\n\n                        safeString(\n                            t.keterangan\n                        ),\n\n                        safeString(\n                            t.source\n                        ),\n\n                        safeString(\n                            t.kasir\n                        ),\n\n                        safeString(\n                            t.status_bayar\n                        ),\n\n                        safeString(\n                            t.metode_bayar\n                        ),\n\n                        safeNumber(\n                            t.bayar_tunai\n                        ),\n\n                        safeNumber(\n                            t.transfer_amount\n                        ),\n\n                        safeNumber(\n                            t.kembalian_diberikan\n                        ),\n\n                        safeNumber(\n                            t.diskon\n                        ),\n\n                        t.tanggal_lunas\n                            ? safeDate(\n                                t.tanggal_lunas\n                            )\n                            : null\n                    ]);\n\n            for (\n                let i = 0;\n                i < values.length;\n                i += 500\n            ) {\n\n                await conn.query(`\n                    INSERT INTO transactions\n                    (\n                        id,\n                        nomor_transaksi,\n                        tanggal,\n                        sparepart_id,\n                        custom_item,\n                        part_numbers_alt,\n                        merek,\n                        jenis,\n                        jumlah,\n                        satuan,\n                        jumlah_dasar,\n                        harga_satuan,\n                        tujuan,\n                        keterangan,\n                        source,\n                        kasir,\n                        status_bayar,\n                        metode_bayar,\n                        bayar_tunai,\n                        transfer_amount,\n                        kembalian_diberikan,\n                        diskon,\n                        tanggal_lunas\n                    )\n                    VALUES ?\n                `, [\n                    values.slice(\n                        i,\n                        i + 500\n                    )\n                ]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // PARTNERS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(data.partners) &&\n            data.partners.length > 0\n        ) {\n\n            const values =\n                data.partners\n                    .filter(\n                        p =>\n                            safeInteger(p.id) !== null\n                    )\n                    .map(p => [\n                        safeInteger(p.id),\n                        safeString(p.nama),\n                        safeString(p.tipe),\n                        safeString(p.telp),\n                        safeString(p.alamat)\n                    ]);\n\n            if (values.length > 0) {\n\n                await conn.query(`\n                    INSERT INTO partners\n                    (\n                        id,\n                        nama,\n                        tipe,\n                        telp,\n                        alamat\n                    )\n                    VALUES ?\n                `, [values]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // CASH EXPENSES\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(data.cashExpenses) &&\n            data.cashExpenses.length > 0\n        ) {\n\n            const values =\n                data.cashExpenses\n                    .filter(\n                        e =>\n                            safeInteger(e.id) !== null\n                    )\n                    .map(e => [\n                        safeInteger(e.id),\n                        safeDate(e.tanggal),\n                        safeNumber(e.jumlah),\n                        safeString(e.keterangan),\n                        safeString(e.kasir)\n                    ]);\n\n            if (values.length > 0) {\n\n                await conn.query(`\n                    INSERT INTO cash_expenses\n                    (\n                        id,\n                        tanggal,\n                        jumlah,\n                        keterangan,\n                        kasir\n                    )\n                    VALUES ?\n                `, [values]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // CASH INFLOWS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(data.cashInflows) &&\n            data.cashInflows.length > 0\n        ) {\n\n            const values =\n                data.cashInflows\n                    .filter(\n                        i =>\n                            safeInteger(i.id) !== null\n                    )\n                    .map(i => [\n                        safeInteger(i.id),\n                        safeDate(i.tanggal),\n                        safeNumber(i.jumlah),\n                        safeString(i.keterangan),\n                        safeString(i.kasir)\n                    ]);\n\n            if (values.length > 0) {\n\n                await conn.query(`\n                    INSERT INTO cash_inflows\n                    (\n                        id,\n                        tanggal,\n                        jumlah,\n                        keterangan,\n                        kasir\n                    )\n                    VALUES ?\n                `, [values]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // TAX RECORDS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(data.taxRecords) &&\n            data.taxRecords.length > 0\n        ) {\n\n            const values =\n                data.taxRecords\n                    .filter(\n                        t =>\n                            t &&\n                            t.tax_id\n                    )\n                    .map(t => [\n\n                        safeString(\n                            t.tax_id\n                        ),\n\n                        safeInteger(\n                            t.trx_id,\n                            0\n                        ),\n\n                        safeDate(\n                            t.tanggal\n                        ),\n\n                        safeString(\n                            t.nomor_transaksi\n                        ),\n\n                        safeString(\n                            t.part_number\n                        ),\n\n                        safeString(\n                            t.nama\n                        ),\n\n                        safeString(\n                            t.kategori\n                        ),\n\n                        safeString(\n                            t.merek\n                        ),\n\n                        safeString(\n                            t.status_bayar\n                        ),\n\n                        safeString(\n                            t.pelanggan\n                        ),\n\n                        safeNumber(\n                            t.jumlah\n                        ),\n\n                        safeString(\n                            t.satuan\n                        ),\n\n                        safeNumber(\n                            t.harga_satuan\n                        ),\n\n                        safeNumber(\n                            t.subtotal\n                        ),\n\n                        safeNumber(\n                            t.persentase_pajak\n                        ),\n\n                        safeNumber(\n                            t.nilai_pajak\n                        )\n                    ]);\n\n            if (values.length > 0) {\n\n                await conn.query(`\n                    INSERT INTO tax_records\n                    (\n                        tax_id,\n                        trx_id,\n                        tanggal,\n                        nomor_transaksi,\n                        part_number,\n                        nama,\n                        kategori,\n                        merek,\n                        status_bayar,\n                        pelanggan,\n                        jumlah,\n                        satuan,\n                        harga_satuan,\n                        subtotal,\n                        persentase_pajak,\n                        nilai_pajak\n                    )\n                    VALUES ?\n                `, [values]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // RETUR RECORDS\n        // ----------------------------------------------------\n\n        if (\n            Array.isArray(data.returRecords) &&\n            data.returRecords.length > 0\n        ) {\n\n            const values =\n                data.returRecords\n                    .filter(\n                        r =>\n                            r &&\n                            r.id !== undefined &&\n                            r.id !== null &&\n                            String(r.id).trim() !== \'\'\n                    )\n                    .map(r => [\n\n                        String(r.id),\n\n                        safeString(\n                            r.parent_invoice\n                        ),\n\n                        safeDate(\n                            r.tanggal\n                        ),\n\n                        safeString(\n                            r.kasir\n                        ),\n\n                        safeString(\n                            r.pelanggan\n                        ),\n\n                        JSON.stringify(\n                            Array.isArray(r.items)\n                                ? r.items\n                                : []\n                        ),\n\n                        JSON.stringify(\n                            Array.isArray(\n                                r.exchange_items\n                            )\n                                ? r.exchange_items\n                                : []\n                        )\n                    ]);\n\n            if (values.length > 0) {\n\n                await conn.query(`\n                    INSERT INTO retur_records\n                    (\n                        id,\n                        parent_invoice,\n                        tanggal,\n                        kasir,\n                        pelanggan,\n                        items,\n                        exchange_items\n                    )\n                    VALUES ?\n                `, [values]);\n            }\n        }\n\n        // ----------------------------------------------------\n        // SETTINGS\n        // ----------------------------------------------------\n\n        await conn.query(`\n            UPDATE app_settings\n            SET\n                kas_awal = ?,\n                active_shift_start = ?,\n                master_pajak = ?,\n                users = ?,\n                shift_sessions = ?\n            WHERE id = 1\n        `, [\n\n            safeNumber(\n                data.kasAwal\n            ),\n\n            data.activeShiftStart ||\n                Date.now(),\n\n            JSON.stringify(\n                Array.isArray(\n                    data.masterPajak\n                )\n                    ? data.masterPajak\n                    : []\n            ),\n\n            JSON.stringify(\n                Array.isArray(\n                    data.users\n                )\n                    ? data.users\n                    : []\n            ),\n\n            JSON.stringify(\n                Array.isArray(data.shiftSessions)\n                    ? data.shiftSessions\n                    : []\n            )\n        ]);\n\n        await conn.commit();\n\n        invalidateDataCache();\n\n        res.json({\n            success: true,\n            message:\n                \'Restore data berhasil!\'\n        });\n\n    } catch (error) {\n\n        try {\n            await conn.rollback();\n        } catch (e) {}\n\n        console.error(\n            \'Error restore:\',\n            error\n        );\n\n        res.status(500).json({\n            success: false,\n            error: error.message\n        });\n\n    } finally {\n\n        conn.release();\n    }\n});\n\n// ============================================================\n// SERVER\n// ============================================================\n\nconst PORT =\n    process.env.PORT || 3000;\n\napp.listen(\n    PORT,\n    () => {\n        console.log(\n            `Server berjalan di port ${PORT}`\n        );\n    }\n);';
+// ============================================================
+// INISIALISASI OTOMATIS
+// ============================================================
+async function initializeDatabase() {
+    // ========================================================
+    // Tabel inti aplikasi lama - TIDAK menghapus data lama
+    // ========================================================
+    await pool.query(\`CREATE TABLE IF NOT EXISTS spareparts (
+        id BIGINT PRIMARY KEY, kode VARCHAR(50), part_number VARCHAR(255), part_numbers_alt TEXT,
+        nama VARCHAR(500), kategori VARCHAR(100), merek VARCHAR(100), satuan VARCHAR(50),
+        stok_min INT DEFAULT 0, stok_awal INT DEFAULT 0, harga_beli BIGINT DEFAULT 0, harga_jual BIGINT DEFAULT 0,
+        satuan_alt VARCHAR(50), isi_satuan_alt INT DEFAULT 0, harga_jual_alt BIGINT DEFAULT 0,
+        pajak_status VARCHAR(20), kode_pajak VARCHAR(50), keterangan TEXT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
 
-function copyAll() {
-    navigator.clipboard.writeText(source).then(() => {
-        showStatus('Kode berhasil disalin.');
+    await pool.query(\`CREATE TABLE IF NOT EXISTS transactions (
+        id BIGINT PRIMARY KEY, nomor_transaksi VARCHAR(50), tanggal DATETIME, sparepart_id BIGINT,
+        custom_item VARCHAR(500), part_numbers_alt TEXT, merek VARCHAR(100), jenis VARCHAR(20),
+        jumlah INT, satuan VARCHAR(50), jumlah_dasar INT, harga_satuan BIGINT, tujuan VARCHAR(255),
+        keterangan TEXT, source VARCHAR(50), kasir VARCHAR(100), status_bayar VARCHAR(20), metode_bayar VARCHAR(50),
+        bayar_tunai BIGINT DEFAULT 0, transfer_amount BIGINT DEFAULT 0, kembalian_diberikan BIGINT DEFAULT 0,
+        diskon BIGINT DEFAULT 0, tanggal_lunas DATETIME NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+
+    await pool.query(\`CREATE TABLE IF NOT EXISTS partners (
+        id BIGINT PRIMARY KEY, nama VARCHAR(255), tipe VARCHAR(50), telp VARCHAR(50), alamat TEXT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+
+    await pool.query(\`CREATE TABLE IF NOT EXISTS cash_expenses (
+        id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+
+    await pool.query(\`CREATE TABLE IF NOT EXISTS cash_inflows (
+        id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+
+    await pool.query(\`CREATE TABLE IF NOT EXISTS tax_records (
+        tax_id VARCHAR(100) PRIMARY KEY, trx_id BIGINT, tanggal DATETIME, nomor_transaksi VARCHAR(50),
+        part_number VARCHAR(255), nama VARCHAR(500), kategori VARCHAR(100), merek VARCHAR(100),
+        status_bayar VARCHAR(20), pelanggan VARCHAR(255), jumlah INT, satuan VARCHAR(50),
+        harga_satuan BIGINT, subtotal BIGINT, persentase_pajak DECIMAL(5,2), nilai_pajak BIGINT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+
+    await pool.query(\`CREATE TABLE IF NOT EXISTS retur_records (
+        id VARCHAR(50) PRIMARY KEY, parent_invoice VARCHAR(50), tanggal DATETIME, kasir VARCHAR(100),
+        pelanggan VARCHAR(255), items JSON, exchange_items JSON
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    try { await pool.query(\`ALTER TABLE retur_records ADD COLUMN exchange_items JSON\`); } catch(e) {}
+
+    // ========================================================
+    // Settings + master database baru
+    // ========================================================
+    await pool.query(\`CREATE TABLE IF NOT EXISTS app_settings (
+        id INT PRIMARY KEY DEFAULT 1, kas_awal BIGINT DEFAULT 0, active_shift_start BIGINT,
+        master_pajak JSON, users JSON, shift_sessions JSON, master_bank JSON NULL, audit_trail JSON NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+    try { await pool.query(\`ALTER TABLE app_settings ADD COLUMN shift_sessions JSON\`); } catch(e) {}
+    try { await pool.query(\`ALTER TABLE app_settings ADD COLUMN master_bank JSON NULL\`); } catch(e) {}
+    try { await pool.query(\`ALTER TABLE app_settings ADD COLUMN audit_trail JSON NULL\`); } catch(e) {}
+
+    await pool.query(\`CREATE TABLE IF NOT EXISTS master_pajak (
+        id BIGINT PRIMARY KEY, jenis VARCHAR(100) NOT NULL, persentase DECIMAL(5,2) NOT NULL DEFAULT 0,
+        kode_pajak VARCHAR(50) DEFAULT '', aktif TINYINT(1) DEFAULT 1, keterangan VARCHAR(255) DEFAULT '',
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+
+    await pool.query(\`CREATE TABLE IF NOT EXISTS master_bank (
+        id BIGINT PRIMARY KEY, nama VARCHAR(100) NOT NULL, rekening VARCHAR(100) DEFAULT '',
+        atas_nama VARCHAR(255) DEFAULT '', aktif TINYINT(1) DEFAULT 1, keterangan VARCHAR(255) DEFAULT '',
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+
+    await pool.query(\`CREATE TABLE IF NOT EXISTS users (
+        username VARCHAR(100) PRIMARY KEY, password VARCHAR(255) NOT NULL, role VARCHAR(50) NOT NULL,
+        name VARCHAR(255) DEFAULT '', aktif TINYINT(1) DEFAULT 1, data JSON NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+
+    await pool.query(\`CREATE TABLE IF NOT EXISTS shift_sessions (
+        id VARCHAR(100) PRIMARY KEY, username VARCHAR(100) DEFAULT '', name VARCHAR(255) DEFAULT '',
+        shift VARCHAR(100) DEFAULT '', start_time DATETIME NULL, end_time DATETIME NULL,
+        status VARCHAR(50) DEFAULT '', data JSON NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+
+    await pool.query(\`CREATE TABLE IF NOT EXISTS audit_trail (
+        id VARCHAR(100) PRIMARY KEY, timestamp BIGINT DEFAULT 0, username VARCHAR(100) DEFAULT '',
+        name VARCHAR(255) DEFAULT '', action VARCHAR(255) DEFAULT '', details TEXT, data JSON NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4\`);
+
+    // ========================================================
+    // Pastikan row settings utama tersedia
+    // ========================================================
+    const defaultPajak = [
+        {jenis:'Aki Basah',persentase:20}, {jenis:'Aki Kering',persentase:11},
+        {jenis:'Oli',persentase:4}, {jenis:'Air Radiator',persentase:4},
+        {jenis:'Minyak Rem',persentase:4}, {jenis:'Lainnya',persentase:11}
+    ];
+    const defaultUsers = [
+        {username:'owner',password:'owner123',role:'Owner',name:'Pemilik'},
+        {username:'admin',password:'admin123',role:'Admin',name:'Administrator'},
+        {username:'pagi',password:'pagi123',role:'Kasir',name:'Kasir Pagi'},
+        {username:'siang',password:'siang123',role:'Kasir',name:'Kasir Siang'}
+    ];
+
+    const [settings] = await pool.query(\`SELECT * FROM app_settings WHERE id=1 LIMIT 1\`);
+    if (settings.length === 0) {
+        await pool.query(\`INSERT INTO app_settings
+            (id,kas_awal,active_shift_start,master_pajak,users,shift_sessions,master_bank,audit_trail)
+            VALUES (?,?,?,?,?,?,?,?)\`, [
+                1,0,Date.now(),JSON.stringify(defaultPajak),JSON.stringify(defaultUsers),JSON.stringify([]),JSON.stringify([]),JSON.stringify([])
+            ]);
+    }
+
+    // ========================================================
+    // Master pajak: jangan menimpa data yang sudah ada
+    // ========================================================
+    const [pajakCount] = await pool.query(\`SELECT COUNT(*) AS n FROM master_pajak\`);
+    if (Number(pajakCount[0].n) === 0) {
+        for (let i=0;i<defaultPajak.length;i++) {
+            const x=defaultPajak[i];
+            await pool.query(\`INSERT INTO master_pajak (id,jenis,persentase,aktif) VALUES (?,?,?,1)\`, [i+1,x.jenis,x.persentase]);
+        }
+    }
+
+    // ========================================================
+    // User: jangan menghapus user lama; pastikan admin selalu ada
+    // ========================================================
+    for (const u of defaultUsers) {
+        await pool.query(\`INSERT IGNORE INTO users (username,password,role,name,aktif,data) VALUES (?,?,?,?,1,?)\`,
+            [u.username,u.password,u.role,u.name,JSON.stringify(u)]);
+    }
+
+    // Sinkronisasi settings lama jika JSON-nya kosong.
+    const [freshSettings] = await pool.query(\`SELECT master_pajak,users FROM app_settings WHERE id=1 LIMIT 1\`);
+    if (freshSettings.length) {
+        const mp = safeJSON(freshSettings[0].master_pajak, []);
+        if (!Array.isArray(mp) || mp.length === 0) {
+            const [rows] = await pool.query(\`SELECT jenis,persentase,kode_pajak FROM master_pajak WHERE aktif=1 ORDER BY id\`);
+            await pool.query(\`UPDATE app_settings SET master_pajak=? WHERE id=1\`, [JSON.stringify(rows.map(x=>({jenis:x.jenis,persentase:Number(x.persentase),kode_pajak:x.kode_pajak||''})))]);
+        }
+        const us = safeJSON(freshSettings[0].users, []);
+        if (!Array.isArray(us) || us.length === 0) {
+            const [rows] = await pool.query(\`SELECT username,password,role,name FROM users WHERE aktif=1 ORDER BY username\`);
+            await pool.query(\`UPDATE app_settings SET users=? WHERE id=1\`, [JSON.stringify(rows)]);
+        }
+    }
+}
+`;
+
+document.getElementById("code").value = code;
+
+function copyCode() {
+    const el = document.getElementById("code");
+    el.focus();
+    el.select();
+    el.setSelectionRange(0, el.value.length);
+
+    navigator.clipboard.writeText(el.value).then(() => {
+        alert("Kode server.js berhasil disalin.");
     }).catch(() => {
-        const ta = document.createElement('textarea');
-        ta.value = source;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        ta.remove();
-        showStatus('Kode berhasil disalin.');
+        document.execCommand("copy");
+        alert("Kode server.js berhasil disalin.");
     });
-}
-
-function selectAllCode() {
-    const range = document.createRange();
-    range.selectNodeContents(document.getElementById('code'));
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-    showStatus('Semua kode dipilih.');
-}
-
-function downloadJS() {
-    const blob = new Blob([source], {type: 'text/javascript;charset=utf-8'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'server.js';
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showStatus('server.js dibuat.');
-}
-
-function showStatus(text) {
-    const el = document.getElementById('status');
-    el.textContent = text;
-    setTimeout(() => el.textContent = '', 2500);
-}
-
-function searchCode() {
-    // Pencarian sederhana: scroll ke kecocokan pertama tanpa mengubah source.
-    const q = document.getElementById('search').value.trim();
-    if (!q) return;
-    const index = source.toLowerCase().indexOf(q.toLowerCase());
-    if (index < 0) {
-        showStatus('Tidak ditemukan.');
-        return;
-    }
-    const before = source.slice(0, index);
-    const line = before.split('\n').length;
-    const code = document.getElementById('code');
-    const lineHeight = 13 * 1.55;
-    code.scrollTop = Math.max(0, (line - 3) * lineHeight);
-    showStatus('Ditemukan di baris ' + line + '.');
 }
 </script>
 </body>
