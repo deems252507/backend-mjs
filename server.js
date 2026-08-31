@@ -56,7 +56,7 @@ process.on('uncaughtException', (error) => {
 let dataCache = null;
 let dataCacheTime = 0;
 
-const DATA_CACHE_TTL = 10000; // 10 detik; write tetap meng-invalidasi cache
+const DATA_CACHE_TTL = 2000;
 
 function invalidateDataCache() {
     dataCache = null;
@@ -589,7 +589,7 @@ app.get('/api/data', async (req, res) => {
         const [masterBankRows] = await connection.query(`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank WHERE aktif = 1 ORDER BY id`);
         const [userRows] = await connection.query(`SELECT username, password, role, name, aktif, data FROM users WHERE aktif = 1 ORDER BY username`);
         const [shiftRows] = await connection.query(`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC`);
-        const [auditRows] = await connection.query(`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 100`);
+        const [auditRows] = await connection.query(`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000`);
 
         let returs = [];
 
@@ -3688,7 +3688,7 @@ const PORT =
 async function startServer() {
     try {
         await initializeDatabase();
-        console.log('Database initialization selesai. Mode cepat aktif: cache 10 detik + audit 100 terbaru.');
+        console.log('Database initialization selesai.');
 
         app.listen(PORT, () => {
             console.log(`Server berjalan di port ${PORT}`);
@@ -3704,28 +3704,8 @@ startServer();
 // ============================================================
 // INISIALISASI OTOMATIS
 // ============================================================
-async function performDatabaseInitialization() {
-    // ========================================================
-let databaseReady = false;
-let databaseInitPromise = null;
-
 async function initializeDatabase() {
-    if (databaseReady) return;
-
-    if (!databaseInitPromise) {
-        databaseInitPromise = performDatabaseInitialization()
-            .then(() => {
-                databaseReady = true;
-            })
-            .catch(error => {
-                databaseInitPromise = null;
-                throw error;
-            });
-    }
-
-    return databaseInitPromise;
-}
-
+    // ========================================================
     // Tabel inti aplikasi lama - TIDAK menghapus data lama
     // ========================================================
     await pool.query(`CREATE TABLE IF NOT EXISTS spareparts (
@@ -4035,28 +4015,11 @@ async function initializeDatabase() {
     }
 
     // ========================================================
+    // User: jangan menghapus user lama; pastikan admin selalu ada
     // ========================================================
-    // USER: pastikan kolom lama/baru tersedia SEBELUM INSERT
-    // Database lama bisa memiliki tabel users tanpa kolom aktif/data.
-    // Tambahkan kolom yang hilang tanpa menghapus atau mengubah data lama.
-    // ========================================================
-    await ensureColumn('users', 'password', "VARCHAR(255) DEFAULT ''");
-    await ensureColumn('users', 'role', "VARCHAR(50) DEFAULT ''");
-    await ensureColumn('users', 'name', "VARCHAR(255) DEFAULT ''");
-    await ensureColumn('users', 'aktif', "TINYINT(1) DEFAULT 1");
-    await ensureColumn('users', 'data', "JSON NULL");
-    await ensureColumn('users', 'updated_at', "DATETIME NULL");
-
-    const [userSchemaFinal] = await pool.query(`SHOW COLUMNS FROM \`users\``);
-    const userColumnNamesFinal = userSchemaFinal.map(x => x.Field);
-    console.log('[USERS] Kolom aktif tersedia:', userColumnNamesFinal.includes('aktif'));
-    console.log('[USERS] Kolom data tersedia:', userColumnNamesFinal.includes('data'));
-
     for (const u of defaultUsers) {
-        await pool.query(
-            `INSERT IGNORE INTO users (username,password,role,name,aktif,data) VALUES (?,?,?,?,1,?)`,
-            [u.username,u.password,u.role,u.name,JSON.stringify(u)]
-        );
+        await pool.query(`INSERT IGNORE INTO users (username,password,role,name,aktif,data) VALUES (?,?,?,?,1,?)`,
+            [u.username,u.password,u.role,u.name,JSON.stringify(u)]);
     }
 
     // Sinkronisasi settings lama jika JSON-nya kosong.
