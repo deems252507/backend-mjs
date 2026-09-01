@@ -13,6 +13,10 @@ app.use(bodyParser.json({ limit: '50mb' }));
 // TEST SERVER
 // ============================================================
 
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'OK', server: true, database: 'async-init' });
+});
+
 app.get('/api/test', (req, res) => {
     res.json({
         status: 'OK',
@@ -25,13 +29,17 @@ app.get('/api/test', (req, res) => {
 // ============================================================
 
 const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'b7fgoctdsrijlfhczppz-mysql.services.clever-cloud.com',
-    user: process.env.DB_USER || 'uks2krvuygsynrco',
-    password: process.env.DB_PASSWORD || 'fWwkTbshbBANrTGMj8Aq',
-    database: process.env.DB_NAME || 'b7fgoctdsrijlfhczppz',
+    host: process.env.MYSQL_ADDON_HOST || process.env.DB_HOST,
+    user: process.env.MYSQL_ADDON_USER || process.env.DB_USER,
+    password: process.env.MYSQL_ADDON_PASSWORD || process.env.DB_PASSWORD,
+    database: process.env.MYSQL_ADDON_DB || process.env.DB_NAME,
+    port: Number(process.env.MYSQL_ADDON_PORT || process.env.DB_PORT || 3306),
     waitForConnections: true,
-    connectionLimit: 3,
-    queueLimit: 0
+    connectionLimit: 2,
+    queueLimit: 0,
+    connectTimeout: 10000,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000
 });
 
 // ============================================================
@@ -2701,40 +2709,55 @@ app.delete('/api/master-bank/:id', async (req,res)=>{const id=safeInteger(req.pa
 app.put('/api/master-pajak/bulk', async (req,res)=>{const items=Array.isArray(req.body?.data)?req.body.data:[];let conn;try{conn=await pool.getConnection();await conn.beginTransaction();for(let i=0;i<items.length;i++){const x=items[i]||{},jenis=safeString(x.jenis||x.nama).trim();if(!jenis)continue;const id=safeInteger(x.id,i+1);await conn.query(`INSERT INTO master_pajak (id,jenis,persentase,kode_pajak,aktif,keterangan) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE jenis=VALUES(jenis),persentase=VALUES(persentase),kode_pajak=VALUES(kode_pajak),aktif=VALUES(aktif),keterangan=VALUES(keterangan)`,[id,jenis,safeNumber(x.persentase),safeString(x.kode_pajak),x.aktif===false?0:1,safeString(x.keterangan)]);}await conn.commit();invalidateDataCache();res.json({success:true});}catch(error){if(conn)try{await conn.rollback();}catch(_){}res.status(500).json({success:false,error:error.message});}finally{if(conn)conn.release();}});
 
 // ============================================================
+// SHIFT READ API - ringan, jangan tarik seluruh /api/data saat polling
+// ============================================================
+app.get('/api/shift-sessions', async (req,res)=>{
+    try {
+        const [rows]=await pool.query(`SELECT id,username,name,shift,start_time,end_time,status,data FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC`);
+        const data=rows.map(r=>{
+            const extra=safeJSON(r.data,{});
+            return {...extra,id:r.id,username:r.username,name:r.name,shift:r.shift,
+                start:r.start_time?new Date(r.start_time).getTime():Number(extra.start)||0,
+                end:r.end_time?new Date(r.end_time).getTime():null,
+                start_time:r.start_time,end_time:r.end_time,status:r.status};
+        });
+        res.json({success:true,data});
+    } catch(error) {
+        res.status(500).json({success:false,error:error.message});
+    }
+});
+
+// ============================================================
 // SHIFT API - satu sesi per request
 // ============================================================
 app.put('/api/shift-sessions/:id', async (req,res)=>{
     const id=safeString(req.params.id).trim(), x=req.body||{};
     if(!id) return res.status(400).json({success:false,error:'ID shift tidak valid.'});
+    let conn;
     try {
-        const username=safeString(x.username||x.user),
-              name=safeString(x.name||x.cashierName),
-              shift=safeString(x.shift),
-              start=x.start_time ? safeDate(x.start_time) : (x.start ? safeDate(x.start) : null),
-              end=x.end_time ? safeDate(x.end_time) : (x.end ? safeDate(x.end) : null),
-              status=safeString(x.status);
-        const stored={...x,id,username,name,shift,
-            start:start ? start.getTime() : null,
-            end:end ? end.getTime() : null,
-            start_time:start ? start.toISOString() : null,
-            end_time:end ? end.toISOString() : null,
-            status};
-        await pool.query(`
-            INSERT INTO shift_sessions
-                (id,username,name,shift,start_time,end_time,status,data)
-            VALUES (?,?,?,?,?,?,?,?)
-            ON DUPLICATE KEY UPDATE
-                username=VALUES(username), name=VALUES(name), shift=VALUES(shift),
-                start_time=VALUES(start_time), end_time=VALUES(end_time),
-                status=VALUES(status), data=VALUES(data)
-        `,[id,username,name,shift,start,end,status,JSON.stringify(stored)]);
+        conn=await pool.getConnection();
+        await conn.beginTransaction();
+        const username=safeString(x.username||x.user), name=safeString(x.name||x.cashierName), shift=safeString(x.shift);
+        const start=x.start_time ? safeDate(x.start_time) : (x.start ? safeDate(x.start) : null);
+        const end=x.end_time ? safeDate(x.end_time) : (x.end ? safeDate(x.end) : null);
+        const status=safeString(x.status).toUpperCase();
+        const stored={...x,id,username,name,shift,start:start?start.getTime():null,end:end?end.getTime():null,start_time:start?start.toISOString():null,end_time:end?end.toISOString():null,status};
+        await conn.query(`INSERT INTO shift_sessions (id,username,name,shift,start_time,end_time,status,data) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE username=VALUES(username),name=VALUES(name),shift=VALUES(shift),start_time=VALUES(start_time),end_time=VALUES(end_time),status=VALUES(status),data=VALUES(data)`,[id,username,name,shift,start,end,status,JSON.stringify(stored)]);
+        const [rows]=await conn.query('SELECT id,username,name,shift,start_time,end_time,status,data FROM shift_sessions WHERE id=? LIMIT 1',[id]);
+        if(!rows.length) throw new Error('Shift tidak ditemukan setelah disimpan.');
+        const r=rows[0];
+        if(status==='SELESAI' && String(r.status).toUpperCase()!=='SELESAI') throw new Error('Database belum mengubah status shift menjadi SELESAI.');
+        await conn.commit();
         invalidateDataCache();
-        res.json({success:true,shift:stored});
+        const extra=safeJSON(r.data,{});
+        res.json({success:true,shift:{...extra,id:r.id,username:r.username,name:r.name,shift:r.shift,start_time:r.start_time,end_time:r.end_time,status:r.status}});
     } catch(error) {
+        if(conn) try{await conn.rollback();}catch(_){}
         console.error('SHIFT SAVE ERROR:',error);
         res.status(500).json({success:false,error:error.message});
-    }
+    } finally { if(conn) conn.release(); }
 });
+
 app.delete('/api/shift-sessions/:id', async (req,res)=>{const id=safeString(req.params.id);try{await pool.query('DELETE FROM shift_sessions WHERE id=?',[id]);invalidateDataCache();res.json({success:true});}catch(error){res.status(500).json({success:false,error:error.message});}});
 
 // ============================================================
@@ -3490,17 +3513,27 @@ const PORT =
     process.env.PORT || 3000;
 
 async function startServer() {
-    try {
-        await initializeDatabase();
-        console.log('Database initialization selesai.');
+    // Dengarkan PORT terlebih dahulu agar Clever Cloud health-check tidak gagal
+    // hanya karena MySQL sedang penuh. Inisialisasi database dilakukan dengan retry.
+    app.listen(PORT, () => {
+        console.log(`Server berjalan di port ${PORT}`);
+    });
 
-        app.listen(PORT, () => {
-            console.log(`Server berjalan di port ${PORT}`);
-        });
-    } catch (error) {
-        console.error('Database initialization gagal:', error);
-        process.exit(1);
+    for (let attempt = 1; attempt <= 12; attempt++) {
+        try {
+            await initializeDatabase();
+            console.log('Database initialization selesai.');
+            return;
+        } catch (error) {
+            console.error(`Database initialization gagal (percobaan ${attempt}/12):`, error.message);
+            if (attempt < 12) {
+                const delay = Math.min(30000, 3000 * attempt);
+                console.log(`Menunggu ${delay}ms lalu mencoba lagi...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
     }
+    console.error('Database belum tersedia setelah 12 percobaan. Server tetap hidup; request database akan mencoba kembali saat koneksi tersedia.');
 }
 
 startServer();
