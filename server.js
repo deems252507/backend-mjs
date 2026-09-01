@@ -12,10 +12,6 @@ app.use(bodyParser.json({ limit: '50mb' }));
 // TEST SERVER
 // ============================================================
 
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'OK', server: true, database: 'async-init' });
-});
-
 app.get('/api/test', (req, res) => {
     res.json({
         status: 'OK',
@@ -28,17 +24,15 @@ app.get('/api/test', (req, res) => {
 // ============================================================
 
 const pool = mysql.createPool({
-    host: process.env.MYSQL_ADDON_HOST || process.env.DB_HOST,
-    user: process.env.MYSQL_ADDON_USER || process.env.DB_USER,
-    password: process.env.MYSQL_ADDON_PASSWORD || process.env.DB_PASSWORD,
-    database: process.env.MYSQL_ADDON_DB || process.env.DB_NAME,
-    port: Number(process.env.MYSQL_ADDON_PORT || process.env.DB_PORT || 3306),
+    host: process.env.DB_HOST || 'b7fgoctdsrijlfhczppz-mysql.services.clever-cloud.com',
+    user: process.env.DB_USER || 'uks2krvuygsynrco',
+    password: process.env.DB_PASSWORD || 'fWwkTbshbBANrTGMj8Aq',
+    database: process.env.DB_NAME || 'b7fgoctdsrijlfhczppz',
     waitForConnections: true,
     connectionLimit: 2,
     queueLimit: 0,
-    connectTimeout: 10000,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 10000
+    waitForConnections: true,
+    connectTimeout: 10000
 });
 
 // ============================================================
@@ -64,7 +58,7 @@ process.on('uncaughtException', (error) => {
 let dataCache = null;
 let dataCacheTime = 0;
 
-const DATA_CACHE_TTL = 5000;
+const DATA_CACHE_TTL = 2000;
 
 function invalidateDataCache() {
     dataCache = null;
@@ -437,6 +431,10 @@ app.post('/api/migrate', async (req, res) => {
                     )
                     VALUES ?
                 `, [values]);
+                for (const t of transactions) {
+                    if (safeInteger(t.id) === null) continue;
+                    await pool.query(`UPDATE transactions SET shift_id=?,bank_transfer=?,retur_id=?,parent_invoice=? WHERE id=?`, [safeString(t.shift_id),safeString(t.bank_transfer),safeString(t.retur_id),safeString(t.parent_invoice),safeInteger(t.id)]);
+                }
             }
         }
 
@@ -561,49 +559,49 @@ app.get('/api/data', async (req, res) => {
 
     try {
 
-        connection = null;
+        connection = await pool.getConnection();
 
-        const [spareparts] = await pool.query(`
+        const [spareparts] = await connection.query(`
             SELECT *
             FROM spareparts
         `);
 
-        const [transactions] = await pool.query(`
+        const [transactions] = await connection.query(`
             SELECT *
             FROM transactions
         `);
 
-        const [partners] = await pool.query(`
+        const [partners] = await connection.query(`
             SELECT *
             FROM partners
         `);
 
-        const [cashExpenses] = await pool.query(`
+        const [cashExpenses] = await connection.query(`
             SELECT *
             FROM cash_expenses
         `);
 
-        const [cashInflows] = await pool.query(`
+        const [cashInflows] = await connection.query(`
             SELECT *
             FROM cash_inflows
         `);
 
-        const [taxRecords] = await pool.query(`
+        const [taxRecords] = await connection.query(`
             SELECT *
             FROM tax_records
         `);
 
-        const [masterPajakRows] = await pool.query(`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak WHERE aktif = 1 ORDER BY id`);
-        const [masterBankRows] = await pool.query(`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank ORDER BY id`);
-        const [userRows] = await pool.query(`SELECT id, username, password, role, name, shift, status, aktif, data, created_at, updated_at FROM users ORDER BY username`);
-        const [shiftRows] = await pool.query(`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC`);
-        const [auditRows] = await pool.query(`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000`);
+        const [masterPajakRows] = await connection.query(`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak WHERE aktif = 1 ORDER BY id`);
+        const [masterBankRows] = await connection.query(`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank WHERE aktif = 1 ORDER BY id`);
+        const [userRows] = await connection.query(`SELECT id, username, password, role, name, shift, status, aktif, data, created_at, updated_at FROM users ORDER BY username`);
+        const [shiftRows] = await connection.query(`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC`);
+        const [auditRows] = await connection.query(`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000`);
 
         let returs = [];
 
         try {
 
-            const [returResult] = await pool.query(`
+            const [returResult] = await connection.query(`
                 SELECT *
                 FROM retur_records
             `);
@@ -618,7 +616,7 @@ app.get('/api/data', async (req, res) => {
             );
         }
 
-        const [settings] = await pool.query(`
+        const [settings] = await connection.query(`
             SELECT *
             FROM app_settings
             WHERE id = 1
@@ -1128,12 +1126,7 @@ app.post('/api/transactions', async (req, res) => {
 
                     t.tanggal_lunas
                         ? safeDate(t.tanggal_lunas)
-                        : null,
-
-                    safeString(t.bank_transfer || t.bankTransfer),
-                    safeString(t.shift_id || t.shiftId),
-                    safeString(t.retur_id || t.returId),
-                    safeString(t.parent_invoice || t.parentInvoice)
+                        : null
                 ]);
 
             if (values.length > 0) {
@@ -1163,11 +1156,7 @@ app.post('/api/transactions', async (req, res) => {
                         transfer_amount,
                         kembalian_diberikan,
                         diskon,
-                        tanggal_lunas,
-                        bank_transfer,
-                        shift_id,
-                        retur_id,
-                        parent_invoice
+                        tanggal_lunas
                     )
                     VALUES ?
                 `, [values]);
@@ -1274,6 +1263,11 @@ app.post('/api/transactions', async (req, res) => {
 // ============================================================
 app.post('/api/transaction/retur', async (req, res) => {
     const body = req.body || {};
+
+    console.log('==========================================');
+    console.log('[RETUR] Request diterima');
+    console.log('[RETUR] Body keys:', Object.keys(body));
+    console.log('==========================================');
 
     /*
      * Frontend bisa saja mengirim:
@@ -1391,24 +1385,6 @@ app.post('/api/transaction/retur', async (req, res) => {
         returRecord.tukarItems ||
         [];
 
-    // Simpan detail finansial retur secara eksplisit agar setelah refresh
-    // Transfer tidak pernah terbaca kembali sebagai Tunai.
-    const shiftId = returRecord.shift_id || returRecord.shiftId || null;
-    const metodeBayar = returRecord.metode_bayar || returRecord.metodeBayar || returRecord.payment_method || '';
-    const paymentMethod = returRecord.payment_method || returRecord.paymentMethod || metodeBayar || '';
-    const bankTransfer = returRecord.bank_transfer || returRecord.bankTransfer || returRecord.bank || '';
-    const returValue = safeNumber(returRecord.retur_value, 0);
-    const exchangeValue = safeNumber(returRecord.exchange_value, 0);
-    const netAmount = Number.isFinite(Number(returRecord.net_amount))
-        ? safeNumber(returRecord.net_amount)
-        : returValue - exchangeValue;
-    const paymentDirection =
-        returRecord.payment_direction ||
-        (netAmount > 0 ? 'REFUND' : (netAmount < 0 ? 'ADDITIONAL_PAYMENT' : 'NONE'));
-    const amount = Math.abs(netAmount);
-    const cashAmount = safeNumber(returRecord.cash_amount, paymentMethod === 'Transfer' ? 0 : amount);
-    const transferAmount = safeNumber(returRecord.transfer_amount, paymentMethod === 'Transfer' ? amount : 0);
-
     // ============================================================
     // VALIDASI FIELD WAJIB
     // ============================================================
@@ -1453,19 +1429,19 @@ app.post('/api/transaction/retur', async (req, res) => {
                 parent_invoice,
                 tanggal,
                 kasir,
-                pelanggan,
-                items,
-                exchange_items,
                 shift_id,
                 metode_bayar,
-                payment_method,
                 bank_transfer,
                 retur_value,
                 exchange_value,
                 net_amount,
                 payment_direction,
+                payment_method,
                 cash_amount,
-                transfer_amount
+                transfer_amount,
+                pelanggan,
+                items,
+                exchange_items
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
@@ -1473,37 +1449,18 @@ app.post('/api/transaction/retur', async (req, res) => {
                 tanggal = VALUES(tanggal),
                 kasir = VALUES(kasir),
                 pelanggan = VALUES(pelanggan),
+                shift_id = VALUES(shift_id), metode_bayar = VALUES(metode_bayar), bank_transfer = VALUES(bank_transfer),
+                retur_value = VALUES(retur_value), exchange_value = VALUES(exchange_value), net_amount = VALUES(net_amount),
+                payment_direction = VALUES(payment_direction), payment_method = VALUES(payment_method), cash_amount = VALUES(cash_amount), transfer_amount = VALUES(transfer_amount),
                 items = VALUES(items),
-                exchange_items = VALUES(exchange_items),
-                shift_id = VALUES(shift_id),
-                metode_bayar = VALUES(metode_bayar),
-                payment_method = VALUES(payment_method),
-                bank_transfer = VALUES(bank_transfer),
-                retur_value = VALUES(retur_value),
-                exchange_value = VALUES(exchange_value),
-                net_amount = VALUES(net_amount),
-                payment_direction = VALUES(payment_direction),
-                cash_amount = VALUES(cash_amount),
-                transfer_amount = VALUES(transfer_amount)
+                exchange_items = VALUES(exchange_items)
             `,
             [
-                String(returId),
-                String(parentInvoice),
-                new Date(tanggal),
-                String(kasir),
-                String(pelanggan),
-                JSON.stringify(normalizedItems),
-                JSON.stringify(normalizedExchangeItems),
-                shiftId,
-                metodeBayar,
-                paymentMethod,
-                bankTransfer,
-                returValue,
-                exchangeValue,
-                netAmount,
-                paymentDirection,
-                cashAmount,
-                transferAmount
+                String(returId), String(parentInvoice), new Date(tanggal), String(kasir),
+                safeString(returRecord.shift_id), safeString(returRecord.metode_bayar), safeString(returRecord.bank_transfer),
+                safeNumber(returRecord.retur_value), safeNumber(returRecord.exchange_value), safeNumber(returRecord.net_amount),
+                safeString(returRecord.payment_direction), safeString(returRecord.payment_method), safeNumber(returRecord.cash_amount), safeNumber(returRecord.transfer_amount),
+                String(pelanggan), JSON.stringify(normalizedItems), JSON.stringify(normalizedExchangeItems)
             ]
         );
 
@@ -1567,11 +1524,7 @@ app.post('/api/transaction/retur', async (req, res) => {
 
                     Number(t.diskon) || 0,
 
-                    t.tanggal_lunas || null,
-                    t.bank_transfer || t.bankTransfer || bankTransfer || '',
-                    t.shift_id || t.shiftId || shiftId || null,
-                    t.retur_id || t.returId || String(returId),
-                    t.parent_invoice || t.parentInvoice || String(parentInvoice)
+                    t.tanggal_lunas || null
                 ]);
 
             if (values.length > 0) {
@@ -1601,16 +1554,15 @@ app.post('/api/transaction/retur', async (req, res) => {
                         transfer_amount,
                         kembalian_diberikan,
                         diskon,
-                        tanggal_lunas,
-                        bank_transfer,
-                        shift_id,
-                        retur_id,
-                        parent_invoice
+                        tanggal_lunas
                     )
                     VALUES ?
                     `,
                     [values]
                 );
+                for (const t of transactions) {
+                    if (t && t.id != null) await conn.query(`UPDATE transactions SET shift_id=?,bank_transfer=?,retur_id=?,parent_invoice=? WHERE id=?`, [safeString(t.shift_id),safeString(t.bank_transfer),safeString(t.retur_id||returId),safeString(t.parent_invoice||parentInvoice),parseInt(t.id)]);
+                }
             }
         }
 
@@ -1786,68 +1738,23 @@ app.post('/api/transaction/retur', async (req, res) => {
 // 7. HAPUS INVOICE
 // ============================================================
 
-app.post('/api/transaction/delete-invoice', async (req, res) => {
-    const trxId = String(req.body?.trxId ?? '').trim();
-    if (!trxId) return res.status(400).json({success:false,error:'Nomor invoice tidak valid'});
-
+app.post('/api/transaction/delete-invoice', async (req,res) => {
+    const trxId=safeString(req.body?.trxId).trim();
+    if(!trxId)return res.status(400).json({success:false,error:'Nomor invoice tidak valid'});
     let conn;
-    try {
-        conn = await pool.getConnection();
-        await conn.beginTransaction();
-
-        // Cari semua retur yang terkait invoice, dengan pencocokan yang tahan
-        // terhadap spasi / perbedaan huruf besar-kecil.
-        const [returs] = await conn.query(`
-            SELECT id
-            FROM retur_records
-            WHERE LOWER(TRIM(parent_invoice)) = LOWER(TRIM(?))
-        `, [trxId]);
-
-        const returIds = returs.map(r => String(r.id)).filter(Boolean);
-
-        // Hapus item transaksi utama.
-        await conn.query(`
-            DELETE FROM tax_records
-            WHERE LOWER(TRIM(nomor_transaksi)) = LOWER(TRIM(?))
-        `, [trxId]);
-        await conn.query(`
-            DELETE FROM transactions
-            WHERE LOWER(TRIM(nomor_transaksi)) = LOWER(TRIM(?))
-        `, [trxId]);
-
-        // Hapus seluruh transaksi dan pajak yang dibuat oleh retur/tukar
-        // yang terkait dengan invoice tersebut.
-        if (returIds.length) {
-            for (const returId of returIds) {
-                await conn.query(`DELETE FROM tax_records WHERE nomor_transaksi = ?`, [returId]);
-                await conn.query(`DELETE FROM transactions WHERE nomor_transaksi = ?`, [returId]);
-            }
-
-            await conn.query(`
-                DELETE FROM retur_records
-                WHERE LOWER(TRIM(parent_invoice)) = LOWER(TRIM(?))
-            `, [trxId]);
+    try{
+        conn=await pool.getConnection(); await conn.beginTransaction();
+        const [returs]=await conn.query(`SELECT id FROM retur_records WHERE LOWER(TRIM(parent_invoice))=LOWER(TRIM(?))`,[trxId]);
+        await conn.query(`DELETE FROM tax_records WHERE LOWER(TRIM(nomor_transaksi))=LOWER(TRIM(?))`,[trxId]);
+        await conn.query(`DELETE FROM transactions WHERE LOWER(TRIM(nomor_transaksi))=LOWER(TRIM(?))`,[trxId]);
+        for(const r of returs){
+            await conn.query(`DELETE FROM tax_records WHERE LOWER(TRIM(nomor_transaksi))=LOWER(TRIM(?))`,[String(r.id)]);
+            await conn.query(`DELETE FROM transactions WHERE LOWER(TRIM(nomor_transaksi))=LOWER(TRIM(?))`,[String(r.id)]);
+            await conn.query(`DELETE FROM retur_records WHERE id=?`,[String(r.id)]);
         }
-
-        await conn.commit();
-        // Jangan merujuk variabel `status` di endpoint penghapusan invoice:
-        // variabel tersebut memang tidak tersedia di scope endpoint ini.
-        // Saldo kas dihitung ulang dari transaksi yang masih tersimpan.
-        invalidateDataCache();
-        res.json({
-            success:true,
-            deletedReturCount:returIds.length,
-            message: returIds.length
-                ? `Invoice ${trxId} dan ${returIds.length} histori retur terkait berhasil dihapus.`
-                : `Invoice ${trxId} berhasil dihapus.`
-        });
-    } catch (error) {
-        if (conn) try { await conn.rollback(); } catch (_) {}
-        console.error('Error hapus invoice + retur:', error);
-        res.status(500).json({success:false,error:error.message});
-    } finally {
-        if (conn) conn.release();
-    }
+        await conn.commit(); invalidateDataCache(); res.json({success:true,message:'Invoice dan seluruh retur terkait berhasil dihapus.'});
+    }catch(error){if(conn)try{await conn.rollback()}catch(_){} res.status(500).json({success:false,error:error.message});}
+    finally{if(conn)conn.release();}
 });
 
 // ============================================================
@@ -2445,6 +2352,34 @@ app.put('/api/transaction/:id', async (req, res) => {
 });
 
 // ============================================================
+// ============================================================
+// CASH MUTATION API - satu record = satu mutasi kas, terikat shift
+// ============================================================
+app.post('/api/cash-inflow', async (req,res)=>{
+    const x=req.body||{}, id=safeInteger(x.id);
+    if(id===null) return res.status(400).json({success:false,error:'ID kas masuk tidak valid.'});
+    try{
+        await pool.query(`INSERT INTO cash_inflows
+            (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,sumber_dana,nomor_bukti,bukti,tujuan,username,userName)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),sumber_dana=VALUES(sumber_dana),nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),tujuan=VALUES(tujuan),username=VALUES(username),userName=VALUES(userName)`,
+            [id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id),safeString(x.jenis_mutasi,'MODAL'),safeString(x.sumber_dana),safeString(x.nomor_bukti),safeString(x.bukti),safeString(x.tujuan),safeString(x.username),safeString(x.userName)]);
+        invalidateDataCache(); res.json({success:true});
+    }catch(error){res.status(500).json({success:false,error:error.message});}
+});
+app.post('/api/cash-expense', async (req,res)=>{
+    const x=req.body||{}, id=safeInteger(x.id);
+    if(id===null) return res.status(400).json({success:false,error:'ID kas keluar tidak valid.'});
+    try{
+        await pool.query(`INSERT INTO cash_expenses
+            (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,sumber_dana,nomor_bukti,bukti,tujuan,username,userName)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),sumber_dana=VALUES(sumber_dana),nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),tujuan=VALUES(tujuan),username=VALUES(username),userName=VALUES(userName)`,
+            [id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id),safeString(x.jenis_mutasi,'TARIK_KAS'),safeString(x.sumber_dana),safeString(x.nomor_bukti),safeString(x.bukti),safeString(x.tujuan),safeString(x.username),safeString(x.userName)]);
+        invalidateDataCache(); res.json({success:true});
+    }catch(error){res.status(500).json({success:false,error:error.message});}
+});
+
 // 13. HAPUS KAS KELUAR
 // ============================================================
 
@@ -2465,17 +2400,10 @@ app.post('/api/cash-expense/delete', async (req, res) => {
 
     try {
 
-        const [oldRows] = await pool.query(`SELECT * FROM cash_expenses WHERE id=? LIMIT 1`, [id]);
         await pool.query(`
             DELETE FROM cash_expenses
             WHERE id = ?
         `, [id]);
-        if (oldRows.length) {
-            const x=req.body||{};
-            await pool.query(`INSERT IGNORE INTO audit_trail (id,timestamp,username,name,action,details,data) VALUES (?,?,?,?,?,?,?)`,
-                [`AUDIT-CASH-DELETE-${id}-${Date.now()}`,Date.now(),safeString(x.username,'system'),safeString(x.userName,'System'),'HAPUS_KAS_KELUAR',
-                `Hapus kas keluar ID ${id} • alasan: ${safeString(x.reason,'Tidak dicantumkan')}`,JSON.stringify({type:'cash_expense_delete',before:oldRows[0],reason:safeString(x.reason)} )]);
-        }
 
         invalidateDataCache();
 
@@ -2520,17 +2448,10 @@ app.post('/api/cash-inflow/delete', async (req, res) => {
 
     try {
 
-        const [oldRows] = await pool.query(`SELECT * FROM cash_inflows WHERE id=? LIMIT 1`, [id]);
         await pool.query(`
             DELETE FROM cash_inflows
             WHERE id = ?
         `, [id]);
-        if (oldRows.length) {
-            const x=req.body||{};
-            await pool.query(`INSERT IGNORE INTO audit_trail (id,timestamp,username,name,action,details,data) VALUES (?,?,?,?,?,?,?)`,
-                [`AUDIT-CASH-DELETE-${id}-${Date.now()}`,Date.now(),safeString(x.username,'system'),safeString(x.userName,'System'),'HAPUS_KAS_MASUK',
-                `Hapus kas masuk ID ${id} • alasan: ${safeString(x.reason,'Tidak dicantumkan')}`,JSON.stringify({type:'cash_inflow_delete',before:oldRows[0],reason:safeString(x.reason)} )]);
-        }
 
         invalidateDataCache();
 
@@ -2678,106 +2599,68 @@ app.delete('/api/partner/:id', async (req, res) => {
 // audit trail mempunyai tabel masing-masing sebagai single source of truth.
 app.put('/api/settings', async (req, res) => {
     const data = req.body || {};
+    let conn;
     try {
-        // Settings ringan saja. Data kas dan retur tidak lagi dikirim ulang
-        // seluruhnya setiap kali ada perubahan kecil.
-        await pool.query(`
-            INSERT INTO app_settings
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+        const [rows] = await conn.query('SELECT id FROM app_settings WHERE id = 1 LIMIT 1');
+        if (!rows.length) {
+            await conn.query(`INSERT INTO app_settings
                 (id, kas_awal, active_shift_start, master_pajak, users, shift_sessions, master_bank, audit_trail)
-            VALUES (1, ?, ?, JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY())
-            ON DUPLICATE KEY UPDATE
-                kas_awal = VALUES(kas_awal),
-                active_shift_start = VALUES(active_shift_start)
-        `, [
-            safeNumber(data.kasAwal),
-            safeNumber(data.activeShiftStart, Date.now())
-        ]);
+                VALUES (1, ?, ?, JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY())`, [
+                safeNumber(data.kasAwal), safeNumber(data.activeShiftStart, Date.now())
+            ]);
+        } else {
+            await conn.query(`UPDATE app_settings SET kas_awal=?, active_shift_start=? WHERE id=1`, [
+                safeNumber(data.kasAwal), safeNumber(data.activeShiftStart, Date.now())
+            ]);
+        }
+        // Kompatibilitas: data lama yang masih memakai saveData tetap dapat di-upsert.
+        for (const x of (Array.isArray(data.cashExpenses) ? data.cashExpenses : [])) {
+            if (!x || x.id === undefined || x.id === null) continue;
+            await conn.query(`INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir) VALUES (?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir)`, [
+                safeInteger(x.id), safeDate(x.tanggal), safeNumber(x.jumlah), safeString(x.keterangan), safeString(x.kasir)
+            ]);
+        }
+        for (const x of (Array.isArray(data.cashInflows) ? data.cashInflows : [])) {
+            if (!x || x.id === undefined || x.id === null) continue;
+            await conn.query(`INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir) VALUES (?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir)`, [
+                safeInteger(x.id), safeDate(x.tanggal), safeNumber(x.jumlah), safeString(x.keterangan), safeString(x.kasir)
+            ]);
+        }
+        for (const r of (Array.isArray(data.returRecords) ? data.returRecords : [])) {
+            if (!r || !String(r.id || '').trim()) continue;
+            await conn.query(`INSERT INTO retur_records (id,parent_invoice,tanggal,kasir,pelanggan,items,exchange_items)
+                VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE parent_invoice=VALUES(parent_invoice),tanggal=VALUES(tanggal),kasir=VALUES(kasir),pelanggan=VALUES(pelanggan),items=VALUES(items),exchange_items=VALUES(exchange_items)`, [
+                safeString(r.id),safeString(r.parent_invoice),safeDate(r.tanggal),safeString(r.kasir),safeString(r.pelanggan),
+                JSON.stringify(Array.isArray(r.items)?r.items:[]),JSON.stringify(Array.isArray(r.exchange_items)?r.exchange_items:[])
+            ]);
+        }
+        await conn.commit();
         invalidateDataCache();
-        res.json({ success: true, message: 'Settings berhasil disimpan.' });
-    } catch (error) {
-        console.error('SETTINGS ERROR:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ============================================================
-// CASH API - simpan satu catatan per request
-// ============================================================
-app.post('/api/cash-expense', async (req, res) => {
-    const x = req.body || {};
-    const id = safeInteger(x.id);
-    const shiftId = safeString(x.shift_id).trim();
-    const amount = safeNumber(x.jumlah);
-    const proofNo = safeString(x.nomor_bukti).trim();
-    const proof = safeString(x.bukti || x.bukti_keterangan).trim();
-    if (id === null) return res.status(400).json({success:false,error:'ID kas keluar tidak valid.'});
-    if (!shiftId) return res.status(400).json({success:false,error:'Kas keluar wajib terikat ke shift aktif.'});
-    if (amount <= 0) return res.status(400).json({success:false,error:'Nominal kas keluar harus lebih dari 0.'});
-    if (!proofNo || !proof) return res.status(400).json({success:false,error:'Nomor bukti dan keterangan bukti wajib diisi untuk audit kas.'});
-    try {
-        const [shifts] = await pool.query(`SELECT id,status FROM shift_sessions WHERE id=? LIMIT 1`, [shiftId]);
-        if (!shifts.length) return res.status(400).json({success:false,error:'Shift tidak ditemukan.'});
-        if (String(shifts[0].status).toUpperCase() !== 'AKTIF') return res.status(400).json({success:false,error:'Kas keluar hanya dapat dicatat pada shift aktif.'});
-        await pool.query(`INSERT INTO cash_expenses
-            (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,tujuan,nomor_bukti,bukti,created_by)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
-            tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),
-            shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),tujuan=VALUES(tujuan),
-            nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),created_by=VALUES(created_by)`,
-            [id,safeDate(x.tanggal),amount,safeString(x.keterangan),safeString(x.kasir),shiftId,
-             safeString(x.jenis_mutasi,'TARIK_KAS'),safeString(x.tujuan),proofNo,proof,safeString(x.created_by || x.kasir)]);
-        const auditId = `AUDIT-CASH-OUT-${id}-${Date.now()}`;
-        await pool.query(`INSERT IGNORE INTO audit_trail (id,timestamp,username,name,action,details,data)
-            VALUES (?,?,?,?,?,?,?)`, [auditId,Date.now(),safeString(x.username || x.kasir,'system'),safeString(x.userName || x.kasir,'System'),
-            'KAS_KELUAR',`Kas keluar Rp ${amount.toLocaleString('id-ID')} • Bukti ${proofNo} • ${safeString(x.keterangan)}`,
-            JSON.stringify({type:'cash_expense',id,shift_id:shiftId,nomor_bukti:proofNo,bukti:proof,jumlah:amount})]);
-        invalidateDataCache();
-        res.json({success:true,audit_id:auditId});
+        res.json({success:true,message:'Settings berhasil disimpan.'});
     } catch(error) {
-        console.error('CASH EXPENSE ERROR:',error);
+        if(conn) try{await conn.rollback();}catch(_){ }
+        console.error('SETTINGS ERROR:',error);
         res.status(500).json({success:false,error:error.message});
-    }
-});
-
-app.post('/api/cash-inflow', async (req, res) => {
-    const x = req.body || {};
-    const id = safeInteger(x.id);
-    const shiftId = safeString(x.shift_id).trim();
-    const amount = safeNumber(x.jumlah);
-    const proofNo = safeString(x.nomor_bukti).trim();
-    const proof = safeString(x.bukti || x.bukti_keterangan).trim();
-    if (id === null) return res.status(400).json({success:false,error:'ID kas masuk tidak valid.'});
-    if (!shiftId) return res.status(400).json({success:false,error:'Kas masuk wajib terikat ke shift aktif.'});
-    if (amount <= 0) return res.status(400).json({success:false,error:'Nominal kas masuk harus lebih dari 0.'});
-    if (!proofNo || !proof) return res.status(400).json({success:false,error:'Nomor bukti dan keterangan bukti wajib diisi untuk audit kas.'});
-    try {
-        const [shifts] = await pool.query(`SELECT id,status FROM shift_sessions WHERE id=? LIMIT 1`, [shiftId]);
-        if (!shifts.length) return res.status(400).json({success:false,error:'Shift tidak ditemukan.'});
-        if (String(shifts[0].status).toUpperCase() !== 'AKTIF') return res.status(400).json({success:false,error:'Kas masuk hanya dapat dicatat pada shift aktif.'});
-        await pool.query(`INSERT INTO cash_inflows
-            (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,sumber_dana,nomor_bukti,bukti,created_by)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
-            tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),
-            shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),sumber_dana=VALUES(sumber_dana),
-            nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),created_by=VALUES(created_by)`,
-            [id,safeDate(x.tanggal),amount,safeString(x.keterangan),safeString(x.kasir),shiftId,
-             safeString(x.jenis_mutasi,'MODAL'),safeString(x.sumber_dana,'Modal Pemilik'),proofNo,proof,safeString(x.created_by || x.kasir)]);
-        const auditId = `AUDIT-CASH-IN-${id}-${Date.now()}`;
-        await pool.query(`INSERT IGNORE INTO audit_trail (id,timestamp,username,name,action,details,data)
-            VALUES (?,?,?,?,?,?,?)`, [auditId,Date.now(),safeString(x.username || x.kasir,'system'),safeString(x.userName || x.kasir,'System'),
-            'KAS_MASUK',`Kas masuk Rp ${amount.toLocaleString('id-ID')} • Bukti ${proofNo} • ${safeString(x.keterangan)}`,
-            JSON.stringify({type:'cash_inflow',id,shift_id:shiftId,nomor_bukti:proofNo,bukti:proof,jumlah:amount})]);
-        invalidateDataCache();
-        res.json({success:true,audit_id:auditId});
-    } catch(error) {
-        console.error('CASH INFLOW ERROR:',error);
-        res.status(500).json({success:false,error:error.message});
-    }
+    } finally { if(conn) conn.release(); }
 });
 
 // ============================================================
 // USER API - update satu akun, tanpa DELETE/INSERT seluruh tabel
 // ============================================================
+app.get('/api/login-bootstrap', async (req,res)=>{
+    if(!databaseReady) return res.status(503).json({success:false,ready:false,message:'Database sedang disiapkan. Silakan tunggu.'});
+    try {
+        const [users]=await pool.query(`SELECT id,username,password,role,name,shift,status,aktif,data FROM users ORDER BY username`);
+        const [shiftRows]=await pool.query(`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time,'1000-01-01') DESC,id DESC`);
+        const shiftSessions=shiftRows.map(r=>{let d={};try{d=r.data?JSON.parse(r.data):{};}catch(e){} return {...d,id:r.id,username:r.username,name:r.name,cashierName:d.cashierName||r.name,shift:r.shift,start:r.start||r.start_time,end:r.end||r.end_time,status:r.status,kasAwal:Number(d.kasAwal||r.kasAwal||0),end_time:r.end_time,start_time:r.start_time};});
+        res.json({success:true,ready:true,users:users.map(u=>{let d={};try{d=u.data?JSON.parse(u.data):{};}catch(e){} return {...d,id:u.id,username:u.username,password:u.password,role:u.role,name:u.name,shift:u.shift,status:u.status,aktif:Number(u.aktif)!==0};}),shiftSessions});
+    } catch(error){res.status(503).json({success:false,ready:false,message:'Database sedang disiapkan.',error:error.message});}
+});
+
 app.get('/api/users', async (req,res)=>{
     try {
         const [rows]=await pool.query(`SELECT username,password,role,name,shift,status,aktif,data,updated_at FROM users ORDER BY username`);
@@ -2828,80 +2711,9 @@ app.delete('/api/master-bank/:id', async (req,res)=>{const id=safeInteger(req.pa
 app.put('/api/master-pajak/bulk', async (req,res)=>{const items=Array.isArray(req.body?.data)?req.body.data:[];let conn;try{conn=await pool.getConnection();await conn.beginTransaction();for(let i=0;i<items.length;i++){const x=items[i]||{},jenis=safeString(x.jenis||x.nama).trim();if(!jenis)continue;const id=safeInteger(x.id,i+1);await conn.query(`INSERT INTO master_pajak (id,jenis,persentase,kode_pajak,aktif,keterangan) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE jenis=VALUES(jenis),persentase=VALUES(persentase),kode_pajak=VALUES(kode_pajak),aktif=VALUES(aktif),keterangan=VALUES(keterangan)`,[id,jenis,safeNumber(x.persentase),safeString(x.kode_pajak),x.aktif===false?0:1,safeString(x.keterangan)]);}await conn.commit();invalidateDataCache();res.json({success:true});}catch(error){if(conn)try{await conn.rollback();}catch(_){}res.status(500).json({success:false,error:error.message});}finally{if(conn)conn.release();}});
 
 // ============================================================
-// LOGIN BOOTSTRAP API - hanya mengambil data yang diperlukan login
-// Tidak menarik seluruh database saat halaman pertama dibuka.
-// ============================================================
-app.get('/api/login-bootstrap', async (req,res)=>{
-    let conn;
-    try {
-        conn=await pool.getConnection();
-        const [users]=await conn.query(`SELECT username,password,role,name,shift,status,aktif,data FROM users ORDER BY username`);
-        const [shifts]=await conn.query(`SELECT id,username,name,shift,start_time,end_time,status,data FROM shift_sessions ORDER BY COALESCE(start_time,'1000-01-01') DESC,id DESC`);
-        const shiftData=shifts.map(r=>{
-            const extra=safeJSON(r.data,{});
-            return {...extra,id:r.id,username:r.username,name:r.name,shift:r.shift,
-                cashierName:r.name,
-                start:r.start_time?new Date(r.start_time).getTime():Number(extra.start)||0,
-                end:r.end_time?new Date(r.end_time).getTime():null,
-                start_time:r.start_time,end_time:r.end_time,status:r.status};
-        });
-        const userData=users.map(u=>({...safeJSON(u.data,{}),username:u.username,password:u.password,role:u.role,name:u.name||'',shift:u.shift||'',status:u.status||(Number(u.aktif)===1?'Aktif':'Nonaktif'),aktif:Number(u.aktif)===1}));
-        res.json({success:true,users:userData,shiftSessions:shiftData});
-    } catch(error) {
-        res.status(500).json({success:false,error:error.message});
-    } finally { if(conn) conn.release(); }
-});
-
-// ============================================================
-// SHIFT READ API - ringan, jangan tarik seluruh /api/data saat polling
-// ============================================================
-app.get('/api/shift-sessions', async (req,res)=>{
-    try {
-        const [rows]=await pool.query(`SELECT id,username,name,shift,start_time,end_time,status,data FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC`);
-        const data=rows.map(r=>{
-            const extra=safeJSON(r.data,{});
-            return {...extra,id:r.id,username:r.username,name:r.name,shift:r.shift,
-                start:r.start_time?new Date(r.start_time).getTime():Number(extra.start)||0,
-                end:r.end_time?new Date(r.end_time).getTime():null,
-                start_time:r.start_time,end_time:r.end_time,status:r.status};
-        });
-        res.json({success:true,data});
-    } catch(error) {
-        res.status(500).json({success:false,error:error.message});
-    }
-});
-
-// ============================================================
 // SHIFT API - satu sesi per request
 // ============================================================
-app.put('/api/shift-sessions/:id', async (req,res)=>{
-    const id=safeString(req.params.id).trim(), x=req.body||{};
-    if(!id) return res.status(400).json({success:false,error:'ID shift tidak valid.'});
-    let conn;
-    try {
-        conn=await pool.getConnection();
-        await conn.beginTransaction();
-        const username=safeString(x.username||x.user), name=safeString(x.name||x.cashierName), shift=safeString(x.shift);
-        const start=x.start_time ? safeDate(x.start_time) : (x.start ? safeDate(x.start) : null);
-        const end=x.end_time ? safeDate(x.end_time) : (x.end ? safeDate(x.end) : null);
-        const status=safeString(x.status).toUpperCase();
-        const stored={...x,id,username,name,shift,start:start?start.getTime():null,end:end?end.getTime():null,start_time:start?start.toISOString():null,end_time:end?end.toISOString():null,status};
-        await conn.query(`INSERT INTO shift_sessions (id,username,name,shift,start_time,end_time,status,data) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE username=VALUES(username),name=VALUES(name),shift=VALUES(shift),start_time=VALUES(start_time),end_time=VALUES(end_time),status=VALUES(status),data=VALUES(data)`,[id,username,name,shift,start,end,status,JSON.stringify(stored)]);
-        const [rows]=await conn.query('SELECT id,username,name,shift,start_time,end_time,status,data FROM shift_sessions WHERE id=? LIMIT 1',[id]);
-        if(!rows.length) throw new Error('Shift tidak ditemukan setelah disimpan.');
-        const r=rows[0];
-        if(status==='SELESAI' && String(r.status).toUpperCase()!=='SELESAI') throw new Error('Database belum mengubah status shift menjadi SELESAI.');
-        await conn.commit();
-        invalidateDataCache();
-        const extra=safeJSON(r.data,{});
-        res.json({success:true,shift:{...extra,id:r.id,username:r.username,name:r.name,shift:r.shift,start_time:r.start_time,end_time:r.end_time,status:r.status}});
-    } catch(error) {
-        if(conn) try{await conn.rollback();}catch(_){}
-        console.error('SHIFT SAVE ERROR:',error);
-        res.status(500).json({success:false,error:error.message});
-    } finally { if(conn) conn.release(); }
-});
-
+app.put('/api/shift-sessions/:id', async (req,res)=>{const id=safeString(req.params.id).trim(),x=req.body||{};if(!id)return res.status(400).json({success:false,error:'ID shift tidak valid.'});try{await pool.query(`INSERT INTO shift_sessions (id,username,name,shift,start_time,end_time,status,data) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE username=VALUES(username),name=VALUES(name),shift=VALUES(shift),start_time=VALUES(start_time),end_time=VALUES(end_time),status=VALUES(status),data=VALUES(data)`,[id,safeString(x.username),safeString(x.name||x.cashierName),safeString(x.shift),x.start_time?safeDate(x.start_time):(x.start?safeDate(x.start):null),x.end_time?safeDate(x.end_time):(x.end?safeDate(x.end):null),safeString(x.status),JSON.stringify(x)]);invalidateDataCache();res.json({success:true,shift:{...x,id,status:safeString(x.status)}});}catch(error){res.status(500).json({success:false,error:error.message});}});
 app.delete('/api/shift-sessions/:id', async (req,res)=>{const id=safeString(req.params.id);try{await pool.query('DELETE FROM shift_sessions WHERE id=?',[id]);invalidateDataCache();res.json({success:true});}catch(error){res.status(500).json({success:false,error:error.message});}});
 
 // ============================================================
@@ -3656,29 +3468,42 @@ app.get('/api/db-schema', async (req, res) => {
 const PORT =
     process.env.PORT || 3000;
 
-async function startServer() {
-    // Dengarkan PORT terlebih dahulu agar Clever Cloud health-check tidak gagal
-    // hanya karena MySQL sedang penuh. Inisialisasi database dilakukan dengan retry.
-    app.listen(PORT, () => {
-        console.log(`Server berjalan di port ${PORT}`);
-    });
+let databaseReady = false;
+let databaseInitPromise = null;
 
-    for (let attempt = 1; attempt <= 12; attempt++) {
-        try {
-            await initializeDatabase();
-            console.log('Database initialization selesai.');
-            return;
-        } catch (error) {
-            console.error(`Database initialization gagal (percobaan ${attempt}/12):`, error.message);
-            if (attempt < 12) {
-                const delay = Math.min(30000, 3000 * attempt);
-                console.log(`Menunggu ${delay}ms lalu mencoba lagi...`);
-                await new Promise(resolve => setTimeout(resolve, delay));
+async function startServer() {
+    app.listen(PORT, () => console.log(`Server berjalan di port ${PORT}`));
+    databaseInitPromise = (async () => {
+        for (let attempt = 1; attempt <= 15; attempt++) {
+            try {
+                await initializeDatabase();
+                databaseReady = true;
+                console.log('Database initialization selesai.');
+                return true;
+            } catch (error) {
+                databaseReady = false;
+                console.error(`Database belum siap (percobaan ${attempt}/15):`, error.code || error.message);
+                if (attempt < 15) await new Promise(r => setTimeout(r, Math.min(5000, 1000 * attempt)));
             }
         }
-    }
-    console.error('Database belum tersedia setelah 12 percobaan. Server tetap hidup; request database akan mencoba kembali saat koneksi tersedia.');
+        console.error('Database belum berhasil disiapkan setelah 15 percobaan. Server tetap hidup dan akan dicoba lagi saat request berikutnya.');
+        return false;
+    })();
 }
+
+app.get('/api/ready', async (req,res)=>{
+    if (databaseReady) return res.json({success:true,ready:true});
+    try {
+        if (!databaseInitPromise || databaseInitPromise.__failed) {
+            const promise=(async()=>{try{await initializeDatabase();databaseReady=true;return true;}catch(e){return false;}})();
+            databaseInitPromise=promise;
+        }
+        const ok=await databaseInitPromise;
+        if(ok) return res.json({success:true,ready:true});
+        databaseInitPromise=null;
+    } catch(e) { databaseInitPromise=null; }
+    res.status(503).json({success:false,ready:false,message:'Database sedang disiapkan. Silakan tunggu.'});
+});
 
 startServer();
 
@@ -3703,9 +3528,7 @@ async function initializeDatabase() {
         jumlah INT, satuan VARCHAR(50), jumlah_dasar INT, harga_satuan BIGINT, tujuan VARCHAR(255),
         keterangan TEXT, source VARCHAR(50), kasir VARCHAR(100), status_bayar VARCHAR(20), metode_bayar VARCHAR(50),
         bayar_tunai BIGINT DEFAULT 0, transfer_amount BIGINT DEFAULT 0, kembalian_diberikan BIGINT DEFAULT 0,
-        diskon BIGINT DEFAULT 0, tanggal_lunas DATETIME NULL,
-        bank_transfer VARCHAR(255) NULL, shift_id VARCHAR(100) NULL,
-        retur_id VARCHAR(50) NULL, parent_invoice VARCHAR(50) NULL
+        diskon BIGINT DEFAULT 0, tanggal_lunas DATETIME NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
     await pool.query(`CREATE TABLE IF NOT EXISTS partners (
@@ -3713,17 +3536,11 @@ async function initializeDatabase() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
     await pool.query(`CREATE TABLE IF NOT EXISTS cash_expenses (
-        id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100),
-        shift_id VARCHAR(100) NULL, jenis_mutasi VARCHAR(50) DEFAULT 'PENGELUARAN',
-        tujuan VARCHAR(255) NULL, nomor_bukti VARCHAR(100) NULL, bukti TEXT NULL,
-        created_by VARCHAR(100) NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
     await pool.query(`CREATE TABLE IF NOT EXISTS cash_inflows (
-        id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100),
-        shift_id VARCHAR(100) NULL, jenis_mutasi VARCHAR(50) DEFAULT 'MODAL',
-        sumber_dana VARCHAR(255) NULL, nomor_bukti VARCHAR(100) NULL, bukti TEXT NULL,
-        created_by VARCHAR(100) NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
     await pool.query(`CREATE TABLE IF NOT EXISTS tax_records (
@@ -3735,12 +3552,7 @@ async function initializeDatabase() {
 
     await pool.query(`CREATE TABLE IF NOT EXISTS retur_records (
         id VARCHAR(50) PRIMARY KEY, parent_invoice VARCHAR(50), tanggal DATETIME, kasir VARCHAR(100),
-        pelanggan VARCHAR(255), items JSON, exchange_items JSON,
-        shift_id VARCHAR(100) NULL,
-        metode_bayar VARCHAR(50) NULL, payment_method VARCHAR(50) NULL,
-        bank_transfer VARCHAR(255) NULL,
-        retur_value BIGINT DEFAULT 0, exchange_value BIGINT DEFAULT 0, net_amount BIGINT DEFAULT 0,
-        payment_direction VARCHAR(30) NULL, cash_amount BIGINT DEFAULT 0, transfer_amount BIGINT DEFAULT 0
+        pelanggan VARCHAR(255), items JSON, exchange_items JSON
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
     try { await pool.query(`ALTER TABLE retur_records ADD COLUMN exchange_items JSON`); } catch(e) {}
 
@@ -3785,34 +3597,6 @@ async function initializeDatabase() {
         name VARCHAR(255) DEFAULT '', action VARCHAR(255) DEFAULT '', details TEXT, data JSON NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
-
-    // ========================================================
-    // INDEX PERFORMA - aman dijalankan berulang kali
-    // ========================================================
-    const indexes = [
-        ['transactions','idx_trx_nomor','(nomor_transaksi)'],
-        ['transactions','idx_trx_sparepart','(sparepart_id)'],
-        ['transactions','idx_trx_tanggal','(tanggal)'],
-        ['transactions','idx_trx_source','(source)'],
-        ['tax_records','idx_tax_nomor','(nomor_transaksi)'],
-        ['tax_records','idx_tax_trx','(trx_id)'],
-        ['tax_records','idx_tax_tanggal','(tanggal)'],
-        ['retur_records','idx_retur_parent','(parent_invoice)'],
-        ['cash_expenses','idx_cash_expense_tanggal','(tanggal)'],
-        ['cash_inflows','idx_cash_inflow_tanggal','(tanggal)'],
-        ['shift_sessions','idx_shift_status','(status)'],
-        ['audit_trail','idx_audit_timestamp','(timestamp)']
-    ];
-    for (const [table,name,definition] of indexes) {
-        try {
-            await pool.query(`CREATE INDEX ${name} ON ${table} ${definition}`);
-        } catch (e) {
-            // Index sudah ada -> abaikan.
-            if (e.code !== 'ER_DUP_KEYNAME' && e.code !== 'ER_INDEX_EXISTS') {
-                console.warn(`[INDEX] ${table}.${name}:`, e.message);
-            }
-        }
-    }
 
     // ========================================================
     // MIGRASI OTOMATIS KOLOM DATABASE LAMA
@@ -3876,6 +3660,7 @@ async function initializeDatabase() {
     const transactionColumns = {
         nomor_transaksi: "VARCHAR(50) NULL",
         tanggal: "DATETIME NULL",
+        shift_id: "VARCHAR(100) NULL", bank_transfer: "VARCHAR(255) NULL", retur_id: "VARCHAR(100) NULL", parent_invoice: "VARCHAR(50) NULL",
         sparepart_id: "BIGINT NULL",
         custom_item: "VARCHAR(500) NULL",
         part_numbers_alt: "TEXT NULL",
@@ -3895,11 +3680,7 @@ async function initializeDatabase() {
         transfer_amount: "BIGINT DEFAULT 0",
         kembalian_diberikan: "BIGINT DEFAULT 0",
         diskon: "BIGINT DEFAULT 0",
-        tanggal_lunas: "DATETIME NULL",
-        bank_transfer: "VARCHAR(255) NULL",
-        shift_id: "VARCHAR(100) NULL",
-        retur_id: "VARCHAR(50) NULL",
-        parent_invoice: "VARCHAR(50) NULL"
+        tanggal_lunas: "DATETIME NULL"
     };
 
     const partnerColumns = {
@@ -3909,11 +3690,9 @@ async function initializeDatabase() {
 
     const cashColumns = {
         tanggal: "DATETIME NULL", jumlah: "BIGINT DEFAULT 0",
-        keterangan: "TEXT NULL", kasir: "VARCHAR(100) NULL",
-        shift_id: "VARCHAR(100) NULL", jenis_mutasi: "VARCHAR(50) DEFAULT 'KAS'",
-        tujuan: "VARCHAR(255) NULL", sumber_dana: "VARCHAR(255) NULL",
-        nomor_bukti: "VARCHAR(100) NULL", bukti: "TEXT NULL",
-        created_by: "VARCHAR(100) NULL", created_at: "DATETIME NULL"
+        keterangan: "TEXT NULL", kasir: "VARCHAR(100) NULL", shift_id: "VARCHAR(100) NULL",
+        jenis_mutasi: "VARCHAR(50) NULL", sumber_dana: "VARCHAR(100) NULL", nomor_bukti: "VARCHAR(100) NULL",
+        bukti: "TEXT NULL", tujuan: "VARCHAR(255) NULL", username: "VARCHAR(100) NULL", userName: "VARCHAR(255) NULL"
     };
 
     const taxColumns = {
@@ -3929,14 +3708,9 @@ async function initializeDatabase() {
 
     const returColumns = {
         parent_invoice: "VARCHAR(50) NULL", tanggal: "DATETIME NULL",
-        kasir: "VARCHAR(100) NULL", pelanggan: "VARCHAR(255) NULL",
-        items: "JSON NULL", exchange_items: "JSON NULL",
-        shift_id: "VARCHAR(100) NULL",
-        metode_bayar: "VARCHAR(50) NULL", payment_method: "VARCHAR(50) NULL",
-        bank_transfer: "VARCHAR(255) NULL",
-        retur_value: "BIGINT DEFAULT 0", exchange_value: "BIGINT DEFAULT 0",
-        net_amount: "BIGINT DEFAULT 0", payment_direction: "VARCHAR(30) NULL",
-        cash_amount: "BIGINT DEFAULT 0", transfer_amount: "BIGINT DEFAULT 0"
+        kasir: "VARCHAR(100) NULL", shift_id: "VARCHAR(100) NULL", metode_bayar: "VARCHAR(50) NULL", bank_transfer: "VARCHAR(255) NULL",
+        retur_value: "BIGINT DEFAULT 0", exchange_value: "BIGINT DEFAULT 0", net_amount: "BIGINT DEFAULT 0", payment_direction: "VARCHAR(50) NULL", payment_method: "VARCHAR(50) NULL", cash_amount: "BIGINT DEFAULT 0", transfer_amount: "BIGINT DEFAULT 0", pelanggan: "VARCHAR(255) NULL",
+        items: "JSON NULL", exchange_items: "JSON NULL"
     };
 
     const appSettingColumns = {
@@ -3990,11 +3764,6 @@ async function initializeDatabase() {
     for (const [column, definition] of Object.entries(masterBankColumns)) await ensureColumn('master_bank', column, definition);
     for (const [column, definition] of Object.entries(userColumns)) await ensureColumn('users', column, definition);
     for (const [column, definition] of Object.entries(shiftColumns)) await ensureColumn('shift_sessions', column, definition);
-    // Setiap pemasukan/pengeluaran kas harus terikat ke shift agar kas benar-benar reset saat shift ditutup.
-    try { await ensureColumn('cash_inflows', 'shift_id', "VARCHAR(100) NULL"); } catch(e) {}
-    try { await ensureColumn('cash_expenses', 'shift_id', "VARCHAR(100) NULL"); } catch(e) {}
-    try { await pool.query('CREATE INDEX IF NOT EXISTS idx_cash_inflows_shift ON cash_inflows (shift_id)'); } catch(e) {}
-    try { await pool.query('CREATE INDEX IF NOT EXISTS idx_cash_expenses_shift ON cash_expenses (shift_id)'); } catch(e) {}
     for (const [column, definition] of Object.entries(auditColumns)) await ensureColumn('audit_trail', column, definition);
 
     console.log('[MIGRASI] Pemeriksaan kolom database selesai tanpa menghapus data.');
