@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -30,7 +29,7 @@ const pool = mysql.createPool({
     password: process.env.DB_PASSWORD || 'fWwkTbshbBANrTGMj8Aq',
     database: process.env.DB_NAME || 'b7fgoctdsrijlfhczppz',
     waitForConnections: true,
-    connectionLimit: 1,
+    connectionLimit: 3,
     queueLimit: 0
 });
 
@@ -57,7 +56,7 @@ process.on('uncaughtException', (error) => {
 let dataCache = null;
 let dataCacheTime = 0;
 
-const DATA_CACHE_TTL = 2000;
+const DATA_CACHE_TTL = 5000;
 
 function invalidateDataCache() {
     dataCache = null;
@@ -554,49 +553,49 @@ app.get('/api/data', async (req, res) => {
 
     try {
 
-        connection = await pool.getConnection();
+        connection = null;
 
-        const [spareparts] = await connection.query(`
+        const [spareparts] = await pool.query(`
             SELECT *
             FROM spareparts
         `);
 
-        const [transactions] = await connection.query(`
+        const [transactions] = await pool.query(`
             SELECT *
             FROM transactions
         `);
 
-        const [partners] = await connection.query(`
+        const [partners] = await pool.query(`
             SELECT *
             FROM partners
         `);
 
-        const [cashExpenses] = await connection.query(`
+        const [cashExpenses] = await pool.query(`
             SELECT *
             FROM cash_expenses
         `);
 
-        const [cashInflows] = await connection.query(`
+        const [cashInflows] = await pool.query(`
             SELECT *
             FROM cash_inflows
         `);
 
-        const [taxRecords] = await connection.query(`
+        const [taxRecords] = await pool.query(`
             SELECT *
             FROM tax_records
         `);
 
-        const [masterPajakRows] = await connection.query(`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak WHERE aktif = 1 ORDER BY id`);
-        const [masterBankRows] = await connection.query(`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank WHERE aktif = 1 ORDER BY id`);
-        const [userRows] = await connection.query(`SELECT id, username, password, role, name, shift, status, aktif, data, created_at, updated_at FROM users ORDER BY username`);
-        const [shiftRows] = await connection.query(`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC`);
-        const [auditRows] = await connection.query(`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000`);
+        const [masterPajakRows] = await pool.query(`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak WHERE aktif = 1 ORDER BY id`);
+        const [masterBankRows] = await pool.query(`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank WHERE aktif = 1 ORDER BY id`);
+        const [userRows] = await pool.query(`SELECT id, username, password, role, name, shift, status, aktif, data, created_at, updated_at FROM users ORDER BY username`);
+        const [shiftRows] = await pool.query(`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC`);
+        const [auditRows] = await pool.query(`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000`);
 
         let returs = [];
 
         try {
 
-            const [returResult] = await connection.query(`
+            const [returResult] = await pool.query(`
                 SELECT *
                 FROM retur_records
             `);
@@ -611,7 +610,7 @@ app.get('/api/data', async (req, res) => {
             );
         }
 
-        const [settings] = await connection.query(`
+        const [settings] = await pool.query(`
             SELECT *
             FROM app_settings
             WHERE id = 1
@@ -1258,12 +1257,6 @@ app.post('/api/transactions', async (req, res) => {
 // ============================================================
 app.post('/api/transaction/retur', async (req, res) => {
     const body = req.body || {};
-
-    console.log('==========================================');
-    console.log('[RETUR] Request diterima');
-    console.log('[RETUR] Body keys:', Object.keys(body));
-    console.log('[RETUR] Body:', JSON.stringify(body, null, 2));
-    console.log('==========================================');
 
     /*
      * Frontend bisa saja mengirim:
@@ -2613,54 +2606,63 @@ app.delete('/api/partner/:id', async (req, res) => {
 // audit trail mempunyai tabel masing-masing sebagai single source of truth.
 app.put('/api/settings', async (req, res) => {
     const data = req.body || {};
-    let conn;
     try {
-        await initializeDatabase();
-        conn = await pool.getConnection();
-        await conn.beginTransaction();
-        const [rows] = await conn.query('SELECT id FROM app_settings WHERE id = 1 LIMIT 1');
-        if (!rows.length) {
-            await conn.query(`INSERT INTO app_settings
+        // Settings ringan saja. Data kas dan retur tidak lagi dikirim ulang
+        // seluruhnya setiap kali ada perubahan kecil.
+        await pool.query(`
+            INSERT INTO app_settings
                 (id, kas_awal, active_shift_start, master_pajak, users, shift_sessions, master_bank, audit_trail)
-                VALUES (1, ?, ?, JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY())`, [
-                safeNumber(data.kasAwal), safeNumber(data.activeShiftStart, Date.now())
-            ]);
-        } else {
-            await conn.query(`UPDATE app_settings SET kas_awal=?, active_shift_start=? WHERE id=1`, [
-                safeNumber(data.kasAwal), safeNumber(data.activeShiftStart, Date.now())
-            ]);
-        }
-        // Kompatibilitas: data lama yang masih memakai saveData tetap dapat di-upsert.
-        for (const x of (Array.isArray(data.cashExpenses) ? data.cashExpenses : [])) {
-            if (!x || x.id === undefined || x.id === null) continue;
-            await conn.query(`INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir) VALUES (?,?,?,?,?)
-                ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir)`, [
-                safeInteger(x.id), safeDate(x.tanggal), safeNumber(x.jumlah), safeString(x.keterangan), safeString(x.kasir)
-            ]);
-        }
-        for (const x of (Array.isArray(data.cashInflows) ? data.cashInflows : [])) {
-            if (!x || x.id === undefined || x.id === null) continue;
-            await conn.query(`INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir) VALUES (?,?,?,?,?)
-                ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir)`, [
-                safeInteger(x.id), safeDate(x.tanggal), safeNumber(x.jumlah), safeString(x.keterangan), safeString(x.kasir)
-            ]);
-        }
-        for (const r of (Array.isArray(data.returRecords) ? data.returRecords : [])) {
-            if (!r || !String(r.id || '').trim()) continue;
-            await conn.query(`INSERT INTO retur_records (id,parent_invoice,tanggal,kasir,pelanggan,items,exchange_items)
-                VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE parent_invoice=VALUES(parent_invoice),tanggal=VALUES(tanggal),kasir=VALUES(kasir),pelanggan=VALUES(pelanggan),items=VALUES(items),exchange_items=VALUES(exchange_items)`, [
-                safeString(r.id),safeString(r.parent_invoice),safeDate(r.tanggal),safeString(r.kasir),safeString(r.pelanggan),
-                JSON.stringify(Array.isArray(r.items)?r.items:[]),JSON.stringify(Array.isArray(r.exchange_items)?r.exchange_items:[])
-            ]);
-        }
-        await conn.commit();
+            VALUES (1, ?, ?, JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY(), JSON_ARRAY())
+            ON DUPLICATE KEY UPDATE
+                kas_awal = VALUES(kas_awal),
+                active_shift_start = VALUES(active_shift_start)
+        `, [
+            safeNumber(data.kasAwal),
+            safeNumber(data.activeShiftStart, Date.now())
+        ]);
         invalidateDataCache();
-        res.json({success:true,message:'Settings berhasil disimpan.'});
+        res.json({ success: true, message: 'Settings berhasil disimpan.' });
+    } catch (error) {
+        console.error('SETTINGS ERROR:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ============================================================
+// CASH API - simpan satu catatan per request
+// ============================================================
+app.post('/api/cash-expense', async (req, res) => {
+    const x = req.body || {}, id = safeInteger(x.id);
+    if (id === null) return res.status(400).json({success:false,error:'ID kas keluar tidak valid.'});
+    try {
+        await pool.query(`INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir)
+            VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE
+            tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),
+            keterangan=VALUES(keterangan),kasir=VALUES(kasir)`,
+            [id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir)]);
+        invalidateDataCache();
+        res.json({success:true});
     } catch(error) {
-        if(conn) try{await conn.rollback();}catch(_){ }
-        console.error('SETTINGS ERROR:',error);
+        console.error('CASH EXPENSE ERROR:',error);
         res.status(500).json({success:false,error:error.message});
-    } finally { if(conn) conn.release(); }
+    }
+});
+
+app.post('/api/cash-inflow', async (req, res) => {
+    const x = req.body || {}, id = safeInteger(x.id);
+    if (id === null) return res.status(400).json({success:false,error:'ID kas masuk tidak valid.'});
+    try {
+        await pool.query(`INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir)
+            VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE
+            tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),
+            keterangan=VALUES(keterangan),kasir=VALUES(kasir)`,
+            [id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir)]);
+        invalidateDataCache();
+        res.json({success:true});
+    } catch(error) {
+        console.error('CASH INFLOW ERROR:',error);
+        res.status(500).json({success:false,error:error.message});
+    }
 });
 
 // ============================================================
@@ -3579,6 +3581,34 @@ async function initializeDatabase() {
         name VARCHAR(255) DEFAULT '', action VARCHAR(255) DEFAULT '', details TEXT, data JSON NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+
+    // ========================================================
+    // INDEX PERFORMA - aman dijalankan berulang kali
+    // ========================================================
+    const indexes = [
+        ['transactions','idx_trx_nomor','(nomor_transaksi)'],
+        ['transactions','idx_trx_sparepart','(sparepart_id)'],
+        ['transactions','idx_trx_tanggal','(tanggal)'],
+        ['transactions','idx_trx_source','(source)'],
+        ['tax_records','idx_tax_nomor','(nomor_transaksi)'],
+        ['tax_records','idx_tax_trx','(trx_id)'],
+        ['tax_records','idx_tax_tanggal','(tanggal)'],
+        ['retur_records','idx_retur_parent','(parent_invoice)'],
+        ['cash_expenses','idx_cash_expense_tanggal','(tanggal)'],
+        ['cash_inflows','idx_cash_inflow_tanggal','(tanggal)'],
+        ['shift_sessions','idx_shift_status','(status)'],
+        ['audit_trail','idx_audit_timestamp','(timestamp)']
+    ];
+    for (const [table,name,definition] of indexes) {
+        try {
+            await pool.query(`CREATE INDEX ${name} ON ${table} ${definition}`);
+        } catch (e) {
+            // Index sudah ada -> abaikan.
+            if (e.code !== 'ER_DUP_KEYNAME' && e.code !== 'ER_INDEX_EXISTS') {
+                console.warn(`[INDEX] ${table}.${name}:`, e.message);
+            }
+        }
+    }
 
     // ========================================================
     // MIGRASI OTOMATIS KOLOM DATABASE LAMA
