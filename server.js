@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -1714,81 +1715,63 @@ app.post('/api/transaction/retur', async (req, res) => {
 // ============================================================
 
 app.post('/api/transaction/delete-invoice', async (req, res) => {
+    const trxId = String(req.body?.trxId ?? '').trim();
+    if (!trxId) return res.status(400).json({success:false,error:'Nomor invoice tidak valid'});
 
-    const trxId =
-        req.body?.trxId;
-
-    if (
-        trxId === undefined ||
-        trxId === null ||
-        String(trxId).trim() === ''
-    ) {
-
-        return res.status(400).json({
-            success: false,
-            error: 'Nomor invoice tidak valid'
-        });
-    }
-
+    let conn;
     try {
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
 
-        const [returs] =
-            await pool.query(`
-                SELECT id
-                FROM retur_records
-                WHERE parent_invoice = ?
-            `, [String(trxId)]);
+        // Cari semua retur yang terkait invoice, dengan pencocokan yang tahan
+        // terhadap spasi / perbedaan huruf besar-kecil.
+        const [returs] = await conn.query(`
+            SELECT id
+            FROM retur_records
+            WHERE LOWER(TRIM(parent_invoice)) = LOWER(TRIM(?))
+        `, [trxId]);
 
-        await pool.query(`
-            DELETE FROM transactions
-            WHERE nomor_transaksi = ?
-        `, [String(trxId)]);
+        const returIds = returs.map(r => String(r.id)).filter(Boolean);
 
-        await pool.query(`
+        // Hapus item transaksi utama.
+        await conn.query(`
             DELETE FROM tax_records
-            WHERE nomor_transaksi = ?
-        `, [String(trxId)]);
+            WHERE LOWER(TRIM(nomor_transaksi)) = LOWER(TRIM(?))
+        `, [trxId]);
+        await conn.query(`
+            DELETE FROM transactions
+            WHERE LOWER(TRIM(nomor_transaksi)) = LOWER(TRIM(?))
+        `, [trxId]);
 
-        if (returs.length > 0) {
-
-            for (const r of returs) {
-
-                await pool.query(`
-                    DELETE FROM transactions
-                    WHERE nomor_transaksi = ?
-                `, [String(r.id)]);
-
-                await pool.query(`
-                    DELETE FROM tax_records
-                    WHERE nomor_transaksi = ?
-                `, [String(r.id)]);
+        // Hapus seluruh transaksi dan pajak yang dibuat oleh retur/tukar
+        // yang terkait dengan invoice tersebut.
+        if (returIds.length) {
+            for (const returId of returIds) {
+                await conn.query(`DELETE FROM tax_records WHERE nomor_transaksi = ?`, [returId]);
+                await conn.query(`DELETE FROM transactions WHERE nomor_transaksi = ?`, [returId]);
             }
+
+            await conn.query(`
+                DELETE FROM retur_records
+                WHERE LOWER(TRIM(parent_invoice)) = LOWER(TRIM(?))
+            `, [trxId]);
         }
 
-        await pool.query(`
-            DELETE FROM retur_records
-            WHERE parent_invoice = ?
-        `, [String(trxId)]);
-
+        await conn.commit();
         invalidateDataCache();
-
         res.json({
-            success: true,
-            message:
-                'Invoice & retur berhasil dihapus dari server'
+            success:true,
+            deletedReturCount:returIds.length,
+            message: returIds.length
+                ? `Invoice ${trxId} dan ${returIds.length} histori retur terkait berhasil dihapus.`
+                : `Invoice ${trxId} berhasil dihapus.`
         });
-
     } catch (error) {
-
-        console.error(
-            'Error hapus invoice:',
-            error
-        );
-
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
+        if (conn) try { await conn.rollback(); } catch (_) {}
+        console.error('Error hapus invoice + retur:', error);
+        res.status(500).json({success:false,error:error.message});
+    } finally {
+        if (conn) conn.release();
     }
 });
 
@@ -2720,7 +2703,38 @@ app.put('/api/master-pajak/bulk', async (req,res)=>{const items=Array.isArray(re
 // ============================================================
 // SHIFT API - satu sesi per request
 // ============================================================
-app.put('/api/shift-sessions/:id', async (req,res)=>{const id=safeString(req.params.id).trim(),x=req.body||{};if(!id)return res.status(400).json({success:false,error:'ID shift tidak valid.'});try{await pool.query(`INSERT INTO shift_sessions (id,username,name,shift,start_time,end_time,status,data) VALUES (?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE username=VALUES(username),name=VALUES(name),shift=VALUES(shift),start_time=VALUES(start_time),end_time=VALUES(end_time),status=VALUES(status),data=VALUES(data)`,[id,safeString(x.username),safeString(x.name||x.cashierName),safeString(x.shift),x.start_time?safeDate(x.start_time):(x.start?safeDate(x.start):null),x.end_time?safeDate(x.end_time):(x.end?safeDate(x.end):null),safeString(x.status),JSON.stringify(x)]);invalidateDataCache();res.json({success:true});}catch(error){res.status(500).json({success:false,error:error.message});}});
+app.put('/api/shift-sessions/:id', async (req,res)=>{
+    const id=safeString(req.params.id).trim(), x=req.body||{};
+    if(!id) return res.status(400).json({success:false,error:'ID shift tidak valid.'});
+    try {
+        const username=safeString(x.username||x.user),
+              name=safeString(x.name||x.cashierName),
+              shift=safeString(x.shift),
+              start=x.start_time ? safeDate(x.start_time) : (x.start ? safeDate(x.start) : null),
+              end=x.end_time ? safeDate(x.end_time) : (x.end ? safeDate(x.end) : null),
+              status=safeString(x.status);
+        const stored={...x,id,username,name,shift,
+            start:start ? start.getTime() : null,
+            end:end ? end.getTime() : null,
+            start_time:start ? start.toISOString() : null,
+            end_time:end ? end.toISOString() : null,
+            status};
+        await pool.query(`
+            INSERT INTO shift_sessions
+                (id,username,name,shift,start_time,end_time,status,data)
+            VALUES (?,?,?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE
+                username=VALUES(username), name=VALUES(name), shift=VALUES(shift),
+                start_time=VALUES(start_time), end_time=VALUES(end_time),
+                status=VALUES(status), data=VALUES(data)
+        `,[id,username,name,shift,start,end,status,JSON.stringify(stored)]);
+        invalidateDataCache();
+        res.json({success:true,shift:stored});
+    } catch(error) {
+        console.error('SHIFT SAVE ERROR:',error);
+        res.status(500).json({success:false,error:error.message});
+    }
+});
 app.delete('/api/shift-sessions/:id', async (req,res)=>{const id=safeString(req.params.id);try{await pool.query('DELETE FROM shift_sessions WHERE id=?',[id]);invalidateDataCache();res.json({success:true});}catch(error){res.status(500).json({success:false,error:error.message});}});
 
 // ============================================================
