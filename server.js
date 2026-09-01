@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -595,7 +594,7 @@ app.get('/api/data', async (req, res) => {
         `);
 
         const [masterPajakRows] = await pool.query(`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak WHERE aktif = 1 ORDER BY id`);
-        const [masterBankRows] = await pool.query(`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank WHERE aktif = 1 ORDER BY id`);
+        const [masterBankRows] = await pool.query(`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank ORDER BY id`);
         const [userRows] = await pool.query(`SELECT id, username, password, role, name, shift, status, aktif, data, created_at, updated_at FROM users ORDER BY username`);
         const [shiftRows] = await pool.query(`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC`);
         const [auditRows] = await pool.query(`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000`);
@@ -1129,7 +1128,12 @@ app.post('/api/transactions', async (req, res) => {
 
                     t.tanggal_lunas
                         ? safeDate(t.tanggal_lunas)
-                        : null
+                        : null,
+
+                    safeString(t.bank_transfer || t.bankTransfer),
+                    safeString(t.shift_id || t.shiftId),
+                    safeString(t.retur_id || t.returId),
+                    safeString(t.parent_invoice || t.parentInvoice)
                 ]);
 
             if (values.length > 0) {
@@ -1159,7 +1163,11 @@ app.post('/api/transactions', async (req, res) => {
                         transfer_amount,
                         kembalian_diberikan,
                         diskon,
-                        tanggal_lunas
+                        tanggal_lunas,
+                        bank_transfer,
+                        shift_id,
+                        retur_id,
+                        parent_invoice
                     )
                     VALUES ?
                 `, [values]);
@@ -1383,6 +1391,24 @@ app.post('/api/transaction/retur', async (req, res) => {
         returRecord.tukarItems ||
         [];
 
+    // Simpan detail finansial retur secara eksplisit agar setelah refresh
+    // Transfer tidak pernah terbaca kembali sebagai Tunai.
+    const shiftId = returRecord.shift_id || returRecord.shiftId || null;
+    const metodeBayar = returRecord.metode_bayar || returRecord.metodeBayar || returRecord.payment_method || '';
+    const paymentMethod = returRecord.payment_method || returRecord.paymentMethod || metodeBayar || '';
+    const bankTransfer = returRecord.bank_transfer || returRecord.bankTransfer || returRecord.bank || '';
+    const returValue = safeNumber(returRecord.retur_value, 0);
+    const exchangeValue = safeNumber(returRecord.exchange_value, 0);
+    const netAmount = Number.isFinite(Number(returRecord.net_amount))
+        ? safeNumber(returRecord.net_amount)
+        : returValue - exchangeValue;
+    const paymentDirection =
+        returRecord.payment_direction ||
+        (netAmount > 0 ? 'REFUND' : (netAmount < 0 ? 'ADDITIONAL_PAYMENT' : 'NONE'));
+    const amount = Math.abs(netAmount);
+    const cashAmount = safeNumber(returRecord.cash_amount, paymentMethod === 'Transfer' ? 0 : amount);
+    const transferAmount = safeNumber(returRecord.transfer_amount, paymentMethod === 'Transfer' ? amount : 0);
+
     // ============================================================
     // VALIDASI FIELD WAJIB
     // ============================================================
@@ -1429,16 +1455,36 @@ app.post('/api/transaction/retur', async (req, res) => {
                 kasir,
                 pelanggan,
                 items,
-                exchange_items
+                exchange_items,
+                shift_id,
+                metode_bayar,
+                payment_method,
+                bank_transfer,
+                retur_value,
+                exchange_value,
+                net_amount,
+                payment_direction,
+                cash_amount,
+                transfer_amount
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 parent_invoice = VALUES(parent_invoice),
                 tanggal = VALUES(tanggal),
                 kasir = VALUES(kasir),
                 pelanggan = VALUES(pelanggan),
                 items = VALUES(items),
-                exchange_items = VALUES(exchange_items)
+                exchange_items = VALUES(exchange_items),
+                shift_id = VALUES(shift_id),
+                metode_bayar = VALUES(metode_bayar),
+                payment_method = VALUES(payment_method),
+                bank_transfer = VALUES(bank_transfer),
+                retur_value = VALUES(retur_value),
+                exchange_value = VALUES(exchange_value),
+                net_amount = VALUES(net_amount),
+                payment_direction = VALUES(payment_direction),
+                cash_amount = VALUES(cash_amount),
+                transfer_amount = VALUES(transfer_amount)
             `,
             [
                 String(returId),
@@ -1447,7 +1493,17 @@ app.post('/api/transaction/retur', async (req, res) => {
                 String(kasir),
                 String(pelanggan),
                 JSON.stringify(normalizedItems),
-                JSON.stringify(normalizedExchangeItems)
+                JSON.stringify(normalizedExchangeItems),
+                shiftId,
+                metodeBayar,
+                paymentMethod,
+                bankTransfer,
+                returValue,
+                exchangeValue,
+                netAmount,
+                paymentDirection,
+                cashAmount,
+                transferAmount
             ]
         );
 
@@ -1511,7 +1567,11 @@ app.post('/api/transaction/retur', async (req, res) => {
 
                     Number(t.diskon) || 0,
 
-                    t.tanggal_lunas || null
+                    t.tanggal_lunas || null,
+                    t.bank_transfer || t.bankTransfer || bankTransfer || '',
+                    t.shift_id || t.shiftId || shiftId || null,
+                    t.retur_id || t.returId || String(returId),
+                    t.parent_invoice || t.parentInvoice || String(parentInvoice)
                 ]);
 
             if (values.length > 0) {
@@ -1541,7 +1601,11 @@ app.post('/api/transaction/retur', async (req, res) => {
                         transfer_amount,
                         kembalian_diberikan,
                         diskon,
-                        tanggal_lunas
+                        tanggal_lunas,
+                        bank_transfer,
+                        shift_id,
+                        retur_id,
+                        parent_invoice
                     )
                     VALUES ?
                     `,
@@ -1766,10 +1830,9 @@ app.post('/api/transaction/delete-invoice', async (req, res) => {
         }
 
         await conn.commit();
-        // Setelah shift SELESAI, kas aktif harus kembali 0. Riwayat kas tetap tersimpan karena terikat shift_id.
-        if (status === 'SELESAI') {
-            try { await pool.query('UPDATE app_settings SET kas_awal=0, active_shift_start=0 WHERE id=1'); } catch(e) { console.warn('Reset kas aktif gagal:', e.message); }
-        }
+        // Jangan merujuk variabel `status` di endpoint penghapusan invoice:
+        // variabel tersebut memang tidak tersedia di scope endpoint ini.
+        // Saldo kas dihitung ulang dari transaksi yang masih tersimpan.
         invalidateDataCache();
         res.json({
             success:true,
@@ -3588,7 +3651,9 @@ async function initializeDatabase() {
         jumlah INT, satuan VARCHAR(50), jumlah_dasar INT, harga_satuan BIGINT, tujuan VARCHAR(255),
         keterangan TEXT, source VARCHAR(50), kasir VARCHAR(100), status_bayar VARCHAR(20), metode_bayar VARCHAR(50),
         bayar_tunai BIGINT DEFAULT 0, transfer_amount BIGINT DEFAULT 0, kembalian_diberikan BIGINT DEFAULT 0,
-        diskon BIGINT DEFAULT 0, tanggal_lunas DATETIME NULL
+        diskon BIGINT DEFAULT 0, tanggal_lunas DATETIME NULL,
+        bank_transfer VARCHAR(255) NULL, shift_id VARCHAR(100) NULL,
+        retur_id VARCHAR(50) NULL, parent_invoice VARCHAR(50) NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
     await pool.query(`CREATE TABLE IF NOT EXISTS partners (
@@ -3612,7 +3677,12 @@ async function initializeDatabase() {
 
     await pool.query(`CREATE TABLE IF NOT EXISTS retur_records (
         id VARCHAR(50) PRIMARY KEY, parent_invoice VARCHAR(50), tanggal DATETIME, kasir VARCHAR(100),
-        pelanggan VARCHAR(255), items JSON, exchange_items JSON
+        pelanggan VARCHAR(255), items JSON, exchange_items JSON,
+        shift_id VARCHAR(100) NULL,
+        metode_bayar VARCHAR(50) NULL, payment_method VARCHAR(50) NULL,
+        bank_transfer VARCHAR(255) NULL,
+        retur_value BIGINT DEFAULT 0, exchange_value BIGINT DEFAULT 0, net_amount BIGINT DEFAULT 0,
+        payment_direction VARCHAR(30) NULL, cash_amount BIGINT DEFAULT 0, transfer_amount BIGINT DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
     try { await pool.query(`ALTER TABLE retur_records ADD COLUMN exchange_items JSON`); } catch(e) {}
 
@@ -3767,7 +3837,11 @@ async function initializeDatabase() {
         transfer_amount: "BIGINT DEFAULT 0",
         kembalian_diberikan: "BIGINT DEFAULT 0",
         diskon: "BIGINT DEFAULT 0",
-        tanggal_lunas: "DATETIME NULL"
+        tanggal_lunas: "DATETIME NULL",
+        bank_transfer: "VARCHAR(255) NULL",
+        shift_id: "VARCHAR(100) NULL",
+        retur_id: "VARCHAR(50) NULL",
+        parent_invoice: "VARCHAR(50) NULL"
     };
 
     const partnerColumns = {
@@ -3794,7 +3868,13 @@ async function initializeDatabase() {
     const returColumns = {
         parent_invoice: "VARCHAR(50) NULL", tanggal: "DATETIME NULL",
         kasir: "VARCHAR(100) NULL", pelanggan: "VARCHAR(255) NULL",
-        items: "JSON NULL", exchange_items: "JSON NULL"
+        items: "JSON NULL", exchange_items: "JSON NULL",
+        shift_id: "VARCHAR(100) NULL",
+        metode_bayar: "VARCHAR(50) NULL", payment_method: "VARCHAR(50) NULL",
+        bank_transfer: "VARCHAR(255) NULL",
+        retur_value: "BIGINT DEFAULT 0", exchange_value: "BIGINT DEFAULT 0",
+        net_amount: "BIGINT DEFAULT 0", payment_direction: "VARCHAR(30) NULL",
+        cash_amount: "BIGINT DEFAULT 0", transfer_amount: "BIGINT DEFAULT 0"
     };
 
     const appSettingColumns = {
