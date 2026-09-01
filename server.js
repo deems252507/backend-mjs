@@ -2465,10 +2465,17 @@ app.post('/api/cash-expense/delete', async (req, res) => {
 
     try {
 
+        const [oldRows] = await pool.query(`SELECT * FROM cash_expenses WHERE id=? LIMIT 1`, [id]);
         await pool.query(`
             DELETE FROM cash_expenses
             WHERE id = ?
         `, [id]);
+        if (oldRows.length) {
+            const x=req.body||{};
+            await pool.query(`INSERT IGNORE INTO audit_trail (id,timestamp,username,name,action,details,data) VALUES (?,?,?,?,?,?,?)`,
+                [`AUDIT-CASH-DELETE-${id}-${Date.now()}`,Date.now(),safeString(x.username,'system'),safeString(x.userName,'System'),'HAPUS_KAS_KELUAR',
+                `Hapus kas keluar ID ${id} • alasan: ${safeString(x.reason,'Tidak dicantumkan')}`,JSON.stringify({type:'cash_expense_delete',before:oldRows[0],reason:safeString(x.reason)} )]);
+        }
 
         invalidateDataCache();
 
@@ -2513,10 +2520,17 @@ app.post('/api/cash-inflow/delete', async (req, res) => {
 
     try {
 
+        const [oldRows] = await pool.query(`SELECT * FROM cash_inflows WHERE id=? LIMIT 1`, [id]);
         await pool.query(`
             DELETE FROM cash_inflows
             WHERE id = ?
         `, [id]);
+        if (oldRows.length) {
+            const x=req.body||{};
+            await pool.query(`INSERT IGNORE INTO audit_trail (id,timestamp,username,name,action,details,data) VALUES (?,?,?,?,?,?,?)`,
+                [`AUDIT-CASH-DELETE-${id}-${Date.now()}`,Date.now(),safeString(x.username,'system'),safeString(x.userName,'System'),'HAPUS_KAS_MASUK',
+                `Hapus kas masuk ID ${id} • alasan: ${safeString(x.reason,'Tidak dicantumkan')}`,JSON.stringify({type:'cash_inflow_delete',before:oldRows[0],reason:safeString(x.reason)} )]);
+        }
 
         invalidateDataCache();
 
@@ -2690,16 +2704,35 @@ app.put('/api/settings', async (req, res) => {
 // CASH API - simpan satu catatan per request
 // ============================================================
 app.post('/api/cash-expense', async (req, res) => {
-    const x = req.body || {}, id = safeInteger(x.id);
+    const x = req.body || {};
+    const id = safeInteger(x.id);
+    const shiftId = safeString(x.shift_id).trim();
+    const amount = safeNumber(x.jumlah);
+    const proofNo = safeString(x.nomor_bukti).trim();
+    const proof = safeString(x.bukti || x.bukti_keterangan).trim();
     if (id === null) return res.status(400).json({success:false,error:'ID kas keluar tidak valid.'});
+    if (!shiftId) return res.status(400).json({success:false,error:'Kas keluar wajib terikat ke shift aktif.'});
+    if (amount <= 0) return res.status(400).json({success:false,error:'Nominal kas keluar harus lebih dari 0.'});
+    if (!proofNo || !proof) return res.status(400).json({success:false,error:'Nomor bukti dan keterangan bukti wajib diisi untuk audit kas.'});
     try {
-        await pool.query(`INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir,shift_id)
-            VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
-            tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),
-            keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id)`,
-            [id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id)]);
+        const [shifts] = await pool.query(`SELECT id,status FROM shift_sessions WHERE id=? LIMIT 1`, [shiftId]);
+        if (!shifts.length) return res.status(400).json({success:false,error:'Shift tidak ditemukan.'});
+        if (String(shifts[0].status).toUpperCase() !== 'AKTIF') return res.status(400).json({success:false,error:'Kas keluar hanya dapat dicatat pada shift aktif.'});
+        await pool.query(`INSERT INTO cash_expenses
+            (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,tujuan,nomor_bukti,bukti,created_by)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
+            tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),
+            shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),tujuan=VALUES(tujuan),
+            nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),created_by=VALUES(created_by)`,
+            [id,safeDate(x.tanggal),amount,safeString(x.keterangan),safeString(x.kasir),shiftId,
+             safeString(x.jenis_mutasi,'TARIK_KAS'),safeString(x.tujuan),proofNo,proof,safeString(x.created_by || x.kasir)]);
+        const auditId = `AUDIT-CASH-OUT-${id}-${Date.now()}`;
+        await pool.query(`INSERT IGNORE INTO audit_trail (id,timestamp,username,name,action,details,data)
+            VALUES (?,?,?,?,?,?,?)`, [auditId,Date.now(),safeString(x.username || x.kasir,'system'),safeString(x.userName || x.kasir,'System'),
+            'KAS_KELUAR',`Kas keluar Rp ${amount.toLocaleString('id-ID')} • Bukti ${proofNo} • ${safeString(x.keterangan)}`,
+            JSON.stringify({type:'cash_expense',id,shift_id:shiftId,nomor_bukti:proofNo,bukti:proof,jumlah:amount})]);
         invalidateDataCache();
-        res.json({success:true});
+        res.json({success:true,audit_id:auditId});
     } catch(error) {
         console.error('CASH EXPENSE ERROR:',error);
         res.status(500).json({success:false,error:error.message});
@@ -2707,16 +2740,35 @@ app.post('/api/cash-expense', async (req, res) => {
 });
 
 app.post('/api/cash-inflow', async (req, res) => {
-    const x = req.body || {}, id = safeInteger(x.id);
+    const x = req.body || {};
+    const id = safeInteger(x.id);
+    const shiftId = safeString(x.shift_id).trim();
+    const amount = safeNumber(x.jumlah);
+    const proofNo = safeString(x.nomor_bukti).trim();
+    const proof = safeString(x.bukti || x.bukti_keterangan).trim();
     if (id === null) return res.status(400).json({success:false,error:'ID kas masuk tidak valid.'});
+    if (!shiftId) return res.status(400).json({success:false,error:'Kas masuk wajib terikat ke shift aktif.'});
+    if (amount <= 0) return res.status(400).json({success:false,error:'Nominal kas masuk harus lebih dari 0.'});
+    if (!proofNo || !proof) return res.status(400).json({success:false,error:'Nomor bukti dan keterangan bukti wajib diisi untuk audit kas.'});
     try {
-        await pool.query(`INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir,shift_id)
-            VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
-            tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),
-            keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id)`,
-            [id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id)]);
+        const [shifts] = await pool.query(`SELECT id,status FROM shift_sessions WHERE id=? LIMIT 1`, [shiftId]);
+        if (!shifts.length) return res.status(400).json({success:false,error:'Shift tidak ditemukan.'});
+        if (String(shifts[0].status).toUpperCase() !== 'AKTIF') return res.status(400).json({success:false,error:'Kas masuk hanya dapat dicatat pada shift aktif.'});
+        await pool.query(`INSERT INTO cash_inflows
+            (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,sumber_dana,nomor_bukti,bukti,created_by)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
+            tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),
+            shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),sumber_dana=VALUES(sumber_dana),
+            nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),created_by=VALUES(created_by)`,
+            [id,safeDate(x.tanggal),amount,safeString(x.keterangan),safeString(x.kasir),shiftId,
+             safeString(x.jenis_mutasi,'MODAL'),safeString(x.sumber_dana,'Modal Pemilik'),proofNo,proof,safeString(x.created_by || x.kasir)]);
+        const auditId = `AUDIT-CASH-IN-${id}-${Date.now()}`;
+        await pool.query(`INSERT IGNORE INTO audit_trail (id,timestamp,username,name,action,details,data)
+            VALUES (?,?,?,?,?,?,?)`, [auditId,Date.now(),safeString(x.username || x.kasir,'system'),safeString(x.userName || x.kasir,'System'),
+            'KAS_MASUK',`Kas masuk Rp ${amount.toLocaleString('id-ID')} • Bukti ${proofNo} • ${safeString(x.keterangan)}`,
+            JSON.stringify({type:'cash_inflow',id,shift_id:shiftId,nomor_bukti:proofNo,bukti:proof,jumlah:amount})]);
         invalidateDataCache();
-        res.json({success:true});
+        res.json({success:true,audit_id:auditId});
     } catch(error) {
         console.error('CASH INFLOW ERROR:',error);
         res.status(500).json({success:false,error:error.message});
@@ -3661,11 +3713,17 @@ async function initializeDatabase() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
     await pool.query(`CREATE TABLE IF NOT EXISTS cash_expenses (
-        id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100)
+        id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100),
+        shift_id VARCHAR(100) NULL, jenis_mutasi VARCHAR(50) DEFAULT 'PENGELUARAN',
+        tujuan VARCHAR(255) NULL, nomor_bukti VARCHAR(100) NULL, bukti TEXT NULL,
+        created_by VARCHAR(100) NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
     await pool.query(`CREATE TABLE IF NOT EXISTS cash_inflows (
-        id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100)
+        id BIGINT PRIMARY KEY, tanggal DATETIME, jumlah BIGINT, keterangan TEXT, kasir VARCHAR(100),
+        shift_id VARCHAR(100) NULL, jenis_mutasi VARCHAR(50) DEFAULT 'MODAL',
+        sumber_dana VARCHAR(255) NULL, nomor_bukti VARCHAR(100) NULL, bukti TEXT NULL,
+        created_by VARCHAR(100) NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
 
     await pool.query(`CREATE TABLE IF NOT EXISTS tax_records (
@@ -3851,7 +3909,11 @@ async function initializeDatabase() {
 
     const cashColumns = {
         tanggal: "DATETIME NULL", jumlah: "BIGINT DEFAULT 0",
-        keterangan: "TEXT NULL", kasir: "VARCHAR(100) NULL"
+        keterangan: "TEXT NULL", kasir: "VARCHAR(100) NULL",
+        shift_id: "VARCHAR(100) NULL", jenis_mutasi: "VARCHAR(50) DEFAULT 'KAS'",
+        tujuan: "VARCHAR(255) NULL", sumber_dana: "VARCHAR(255) NULL",
+        nomor_bukti: "VARCHAR(100) NULL", bukti: "TEXT NULL",
+        created_by: "VARCHAR(100) NULL", created_at: "DATETIME NULL"
     };
 
     const taxColumns = {
