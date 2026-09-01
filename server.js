@@ -1766,6 +1766,10 @@ app.post('/api/transaction/delete-invoice', async (req, res) => {
         }
 
         await conn.commit();
+        // Setelah shift SELESAI, kas aktif harus kembali 0. Riwayat kas tetap tersimpan karena terikat shift_id.
+        if (status === 'SELESAI') {
+            try { await pool.query('UPDATE app_settings SET kas_awal=0, active_shift_start=0 WHERE id=1'); } catch(e) { console.warn('Reset kas aktif gagal:', e.message); }
+        }
         invalidateDataCache();
         res.json({
             success:true,
@@ -2626,11 +2630,11 @@ app.post('/api/cash-expense', async (req, res) => {
     const x = req.body || {}, id = safeInteger(x.id);
     if (id === null) return res.status(400).json({success:false,error:'ID kas keluar tidak valid.'});
     try {
-        await pool.query(`INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir)
-            VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE
+        await pool.query(`INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir,shift_id)
+            VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
             tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),
-            keterangan=VALUES(keterangan),kasir=VALUES(kasir)`,
-            [id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir)]);
+            keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id)`,
+            [id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id)]);
         invalidateDataCache();
         res.json({success:true});
     } catch(error) {
@@ -2643,11 +2647,11 @@ app.post('/api/cash-inflow', async (req, res) => {
     const x = req.body || {}, id = safeInteger(x.id);
     if (id === null) return res.status(400).json({success:false,error:'ID kas masuk tidak valid.'});
     try {
-        await pool.query(`INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir)
-            VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE
+        await pool.query(`INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir,shift_id)
+            VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE
             tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),
-            keterangan=VALUES(keterangan),kasir=VALUES(kasir)`,
-            [id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir)]);
+            keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id)`,
+            [id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id)]);
         invalidateDataCache();
         res.json({success:true});
     } catch(error) {
@@ -2707,6 +2711,31 @@ app.delete('/api/master-bank/:id', async (req,res)=>{const id=safeInteger(req.pa
 // MASTER PAJAK API - upsert tanpa menghapus seluruh tabel
 // ============================================================
 app.put('/api/master-pajak/bulk', async (req,res)=>{const items=Array.isArray(req.body?.data)?req.body.data:[];let conn;try{conn=await pool.getConnection();await conn.beginTransaction();for(let i=0;i<items.length;i++){const x=items[i]||{},jenis=safeString(x.jenis||x.nama).trim();if(!jenis)continue;const id=safeInteger(x.id,i+1);await conn.query(`INSERT INTO master_pajak (id,jenis,persentase,kode_pajak,aktif,keterangan) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE jenis=VALUES(jenis),persentase=VALUES(persentase),kode_pajak=VALUES(kode_pajak),aktif=VALUES(aktif),keterangan=VALUES(keterangan)`,[id,jenis,safeNumber(x.persentase),safeString(x.kode_pajak),x.aktif===false?0:1,safeString(x.keterangan)]);}await conn.commit();invalidateDataCache();res.json({success:true});}catch(error){if(conn)try{await conn.rollback();}catch(_){}res.status(500).json({success:false,error:error.message});}finally{if(conn)conn.release();}});
+
+// ============================================================
+// LOGIN BOOTSTRAP API - hanya mengambil data yang diperlukan login
+// Tidak menarik seluruh database saat halaman pertama dibuka.
+// ============================================================
+app.get('/api/login-bootstrap', async (req,res)=>{
+    let conn;
+    try {
+        conn=await pool.getConnection();
+        const [users]=await conn.query(`SELECT username,password,role,name,shift,status,aktif,data FROM users ORDER BY username`);
+        const [shifts]=await conn.query(`SELECT id,username,name,shift,start_time,end_time,status,data FROM shift_sessions ORDER BY COALESCE(start_time,'1000-01-01') DESC,id DESC`);
+        const shiftData=shifts.map(r=>{
+            const extra=safeJSON(r.data,{});
+            return {...extra,id:r.id,username:r.username,name:r.name,shift:r.shift,
+                cashierName:r.name,
+                start:r.start_time?new Date(r.start_time).getTime():Number(extra.start)||0,
+                end:r.end_time?new Date(r.end_time).getTime():null,
+                start_time:r.start_time,end_time:r.end_time,status:r.status};
+        });
+        const userData=users.map(u=>({...safeJSON(u.data,{}),username:u.username,password:u.password,role:u.role,name:u.name||'',shift:u.shift||'',status:u.status||(Number(u.aktif)===1?'Aktif':'Nonaktif'),aktif:Number(u.aktif)===1}));
+        res.json({success:true,users:userData,shiftSessions:shiftData});
+    } catch(error) {
+        res.status(500).json({success:false,error:error.message});
+    } finally { if(conn) conn.release(); }
+});
 
 // ============================================================
 // SHIFT READ API - ringan, jangan tarik seluruh /api/data saat polling
@@ -3819,6 +3848,11 @@ async function initializeDatabase() {
     for (const [column, definition] of Object.entries(masterBankColumns)) await ensureColumn('master_bank', column, definition);
     for (const [column, definition] of Object.entries(userColumns)) await ensureColumn('users', column, definition);
     for (const [column, definition] of Object.entries(shiftColumns)) await ensureColumn('shift_sessions', column, definition);
+    // Setiap pemasukan/pengeluaran kas harus terikat ke shift agar kas benar-benar reset saat shift ditutup.
+    try { await ensureColumn('cash_inflows', 'shift_id', "VARCHAR(100) NULL"); } catch(e) {}
+    try { await ensureColumn('cash_expenses', 'shift_id', "VARCHAR(100) NULL"); } catch(e) {}
+    try { await pool.query('CREATE INDEX IF NOT EXISTS idx_cash_inflows_shift ON cash_inflows (shift_id)'); } catch(e) {}
+    try { await pool.query('CREATE INDEX IF NOT EXISTS idx_cash_expenses_shift ON cash_expenses (shift_id)'); } catch(e) {}
     for (const [column, definition] of Object.entries(auditColumns)) await ensureColumn('audit_trail', column, definition);
 
     console.log('[MIGRASI] Pemeriksaan kolom database selesai tanpa menghapus data.');
