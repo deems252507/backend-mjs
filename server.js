@@ -543,7 +543,6 @@ app.post('/api/migrate', async (req, res) => {
 // ============================================================
 
 let databaseReady = false;
-let databaseInitPromise = null;
 app.get('/api/ready', async (req,res)=>{
     if(databaseReady) return res.json({success:true,ready:true});
     res.status(503).json({success:false,ready:false,error:'Database masih disiapkan.'});
@@ -551,12 +550,6 @@ app.get('/api/ready', async (req,res)=>{
 
 app.get('/api/login-bootstrap', async (req,res)=>{
     try {
-        // Jangan membaca akun saat database masih dalam proses inisialisasi.
-        if (!databaseReady && databaseInitPromise) {
-            const ready = await databaseInitPromise;
-            if (!ready) throw new Error('Database belum siap. Silakan coba lagi.');
-        }
-
         // Pastikan struktur minimum tersedia sebelum login.
         // Tidak menghapus atau menimpa data lama.
         await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
@@ -3692,28 +3685,19 @@ async function startServer() {
     app.listen(PORT, () => {
         console.log(`Server berjalan di port ${PORT}`);
     });
-
-    databaseInitPromise = (async () => {
-        for (let attempt = 1; attempt <= 12; attempt++) {
-            try {
-                await initializeDatabase();
-                databaseReady = true;
-                console.log('Database initialization selesai.');
-                return true;
-            } catch (error) {
-                databaseReady = false;
-                console.error(`Database initialization gagal (percobaan ${attempt}/12):`, error.message);
-                if (attempt < 12) {
-                    await new Promise(r => setTimeout(r, Math.min(5000, 1000 * attempt)));
-                }
-            }
+    for(let attempt=1; attempt<=12; attempt++){
+        try {
+            await initializeDatabase();
+            databaseReady=true;
+            console.log('Database initialization selesai.');
+            return;
+        } catch(error) {
+            databaseReady=false;
+            console.error(`Database initialization gagal (percobaan ${attempt}/12):`, error.message);
+            if(attempt<12) await new Promise(r=>setTimeout(r, Math.min(5000, 1000*attempt)));
         }
-
-        console.error('Database belum siap setelah retry. Server tetap hidup; endpoint login akan menunggu koneksi.');
-        return false;
-    })();
-
-    await databaseInitPromise;
+    }
+    console.error('Database belum siap setelah retry. Server tetap hidup; endpoint login tidak diblokir oleh proses inisialisasi.');
 }
 
 startServer();
@@ -3910,7 +3894,7 @@ async function initializeDatabase() {
         trx_id: "BIGINT DEFAULT 0", tanggal: "DATETIME NULL",
         nomor_transaksi: "VARCHAR(50) NULL", part_number: "VARCHAR(255) NULL",
         nama: "VARCHAR(500) NULL", kategori: "VARCHAR(100) NULL",
-        merek: "VARCHAR(100) NULL", status_bayar: "VARCHAR(20) NULL",
+        merek: "VARCHAR(100) NULL", kode_pajak: "VARCHAR(50) DEFAULT ''", status_bayar: "VARCHAR(20) NULL",
         pelanggan: "VARCHAR(255) NULL", jumlah: "INT DEFAULT 0",
         satuan: "VARCHAR(50) NULL", harga_satuan: "BIGINT DEFAULT 0",
         subtotal: "BIGINT DEFAULT 0", persentase_pajak: "DECIMAL(5,2) DEFAULT 0",
