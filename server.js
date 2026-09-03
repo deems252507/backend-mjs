@@ -1,4 +1,3 @@
-
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -8,7 +7,6 @@ const app = express();
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
-\n// ============================================================\n// PERFORMANCE: gzip response JSON untuk jaringan seluler\n// Browser akan otomatis melakukan decompress. Jika client tidak\n// mendukung gzip, response tetap dikirim normal.\n// ============================================================\nconst zlib = require('zlib');\nconst _originalJson = app.response.json;\napp.response.json = function fastJson(body) {\n    const accept = String(this.req.headers['accept-encoding'] || '').toLowerCase();\n    if (!accept.includes('gzip')) {\n        return _originalJson.call(this, body);\n    }\n\n    let json;\n    try {\n        json = JSON.stringify(body);\n    } catch (e) {\n        return _originalJson.call(this, body);\n    }\n\n    zlib.gzip(Buffer.from(json), { level: 6 }, (err, compressed) => {\n        if (err) {\n            return _originalJson.call(this, body);\n        }\n        this.set('Content-Type', 'application/json; charset=utf-8');\n        this.set('Content-Encoding', 'gzip');\n        this.set('Vary', 'Accept-Encoding');\n        this.removeHeader('Content-Length');\n        this.end(compressed);\n    });\n};\n
 
 // ============================================================
 // TEST SERVER
@@ -31,7 +29,7 @@ const pool = mysql.createPool({
     password: process.env.MYSQL_ADDON_PASSWORD || process.env.DB_PASSWORD || 'fWwkTbshbBANrTGMj8Aq',
     database: process.env.MYSQL_ADDON_DB || process.env.DB_NAME || 'b7fgoctdsrijlfhczppz',
     waitForConnections: true,
-    connectionLimit: 6,
+    connectionLimit: 1,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
     connectTimeout: 10000,
@@ -61,7 +59,7 @@ process.on('uncaughtException', (error) => {
 let dataCache = null;
 let dataCacheTime = 0;
 
-const DATA_CACHE_TTL = 30000;
+const DATA_CACHE_TTL = 2000;
 
 function invalidateDataCache() {
     dataCache = null;
@@ -728,111 +726,197 @@ app.get('/api/data', async (req, res) => {
 
     const now = Date.now();
 
-    if (dataCache && (now - dataCacheTime) < DATA_CACHE_TTL) {
-        res.set('Cache-Control', 'private, max-age=15');
+    if (
+        dataCache &&
+        (now - dataCacheTime) < DATA_CACHE_TTL
+    ) {
         return res.json(dataCache);
     }
 
+    let connection;
+
     try {
-        // Jalankan query independen secara paralel. Pool 6 koneksi
-        // membuat jaringan seluler tidak perlu menunggu query satu per satu.
-        const [
-            sparepartsResult,
-            transactionsResult,
-            partnersResult,
-            cashExpensesResult,
-            cashInflowsResult,
-            taxRecordsResult,
-            masterPajakResult,
-            masterBankResult,
-            userResult,
-            shiftResult,
-            auditResult,
-            settingsResult,
-            returResult
-        ] = await Promise.all([
-            pool.query('SELECT * FROM spareparts'),
-            pool.query('SELECT * FROM transactions'),
-            pool.query('SELECT * FROM partners'),
-            pool.query('SELECT * FROM cash_expenses'),
-            pool.query('SELECT * FROM cash_inflows'),
-            pool.query('SELECT * FROM tax_records'),
-            pool.query('SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak WHERE aktif = 1 ORDER BY id'),
-            pool.query('SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank WHERE aktif = 1 ORDER BY id'),
-            pool.query('SELECT username, password, role, name, shift, status, aktif, data, updated_at FROM users ORDER BY username'),
-            pool.query("SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC"),
-            pool.query('SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000'),
-            pool.query('SELECT * FROM app_settings WHERE id = 1'),
-            pool.query('SELECT * FROM retur_records')
-                .catch(e => {
-                    console.error('Gagal membaca retur_records:', e.message);
-                    return [[]];
-                })
-        ]);
 
-        const spareparts = sparepartsResult[0];
-        const transactions = transactionsResult[0];
-        const partners = partnersResult[0];
-        const cashExpenses = cashExpensesResult[0];
-        const cashInflows = cashInflowsResult[0];
-        const taxRecords = taxRecordsResult[0];
-        const masterPajakRows = masterPajakResult[0];
-        const masterBankRows = masterBankResult[0];
-        const userRows = userResult[0];
-        const shiftRows = shiftResult[0];
-        const auditRows = auditResult[0];
-        const settings = settingsResult[0];
-        const returs = returResult[0] || [];
+        connection = await pool.getConnection();
 
+        const [spareparts] = await connection.query(`
+            SELECT *
+            FROM spareparts
+        `);
+
+        const [transactions] = await connection.query(`
+            SELECT *
+            FROM transactions
+        `);
+
+        const [partners] = await connection.query(`
+            SELECT *
+            FROM partners
+        `);
+
+        const [cashExpenses] = await connection.query(`
+            SELECT *
+            FROM cash_expenses
+        `);
+
+        const [cashInflows] = await connection.query(`
+            SELECT *
+            FROM cash_inflows
+        `);
+
+        const [taxRecords] = await connection.query(`
+            SELECT *
+            FROM tax_records
+        `);
+
+        const [masterPajakRows] = await connection.query(`SELECT id, jenis, persentase, kode_pajak, aktif, keterangan FROM master_pajak WHERE aktif = 1 ORDER BY id`);
+        const [masterBankRows] = await connection.query(`SELECT id, nama, rekening, atas_nama, aktif, keterangan FROM master_bank WHERE aktif = 1 ORDER BY id`);
+        const [userRows] = await connection.query(`SELECT username, password, role, name, shift, status, aktif, data, updated_at FROM users ORDER BY username`);
+        const [shiftRows] = await connection.query(`SELECT * FROM shift_sessions ORDER BY COALESCE(start_time, '1000-01-01') DESC, id DESC`);
+        const [auditRows] = await connection.query(`SELECT * FROM audit_trail ORDER BY timestamp DESC, created_at DESC LIMIT 1000`);
+
+        let returs = [];
+
+        try {
+
+            const [returResult] = await connection.query(`
+                SELECT *
+                FROM retur_records
+            `);
+
+            returs = returResult;
+
+        } catch (e) {
+
+            console.error(
+                'Gagal membaca retur_records:',
+                e.message
+            );
+        }
+
+        const [settings] = await connection.query(`
+            SELECT *
+            FROM app_settings
+            WHERE id = 1
+        `);
+
+        // ----------------------------------------------------
         // DATE CONVERSION
+        // ----------------------------------------------------
+
         transactions.forEach(t => {
-            if (t.tanggal instanceof Date) t.tanggal = t.tanggal.toISOString();
-            if (t.tanggal_lunas instanceof Date) t.tanggal_lunas = t.tanggal_lunas.toISOString();
+
+            if (t.tanggal instanceof Date) {
+                t.tanggal = t.tanggal.toISOString();
+            }
+
+            if (t.tanggal_lunas instanceof Date) {
+                t.tanggal_lunas =
+                    t.tanggal_lunas.toISOString();
+            }
         });
+
         cashExpenses.forEach(e => {
-            if (e.tanggal instanceof Date) e.tanggal = e.tanggal.toISOString();
+
+            if (e.tanggal instanceof Date) {
+                e.tanggal =
+                    e.tanggal.toISOString();
+            }
         });
+
         cashInflows.forEach(i => {
-            if (i.tanggal instanceof Date) i.tanggal = i.tanggal.toISOString();
+
+            if (i.tanggal instanceof Date) {
+                i.tanggal =
+                    i.tanggal.toISOString();
+            }
         });
+
         taxRecords.forEach(t => {
-            if (t.tanggal instanceof Date) t.tanggal = t.tanggal.toISOString();
+
+            if (t.tanggal instanceof Date) {
+                t.tanggal =
+                    t.tanggal.toISOString();
+            }
         });
+
+        // ----------------------------------------------------
+        // RETUR
+        // ----------------------------------------------------
 
         const returRecords = returs.map(r => {
+
             let items = safeJSON(r.items, []);
-            let exchangeItems = safeJSON(r.exchange_items, []);
-            if (!Array.isArray(items)) items = [];
-            if (!Array.isArray(exchangeItems)) exchangeItems = [];
+
+            let exchangeItems =
+                safeJSON(r.exchange_items, []);
+
+            if (!Array.isArray(items)) {
+                items = [];
+            }
+
+            if (!Array.isArray(exchangeItems)) {
+                exchangeItems = [];
+            }
+
             let tanggal = r.tanggal;
-            if (tanggal) tanggal = safeDate(tanggal).toISOString();
+
+            if (tanggal) {
+                tanggal = safeDate(tanggal).toISOString();
+            }
+
             return {
                 ...r,
+
                 id: safeString(r.id),
-                parent_invoice: safeString(r.parent_invoice),
+
+                parent_invoice:
+                    safeString(r.parent_invoice),
+
                 tanggal,
-                kasir: safeString(r.kasir),
-                pelanggan: safeString(r.pelanggan),
+
+                kasir:
+                    safeString(r.kasir),
+
+                pelanggan:
+                    safeString(r.pelanggan),
+
                 items,
-                exchange_items: exchangeItems
+
+                exchange_items:
+                    exchangeItems
             };
         });
 
+        // ----------------------------------------------------
+        // SETTINGS
+        // ----------------------------------------------------
+
+        // Master pajak dibaca dari tabel sebagai sumber utama.
         let masterPajak = masterPajakRows.map(p => ({
             id:p.id, jenis:p.jenis, persentase:Number(p.persentase)||0,
             kode_pajak:p.kode_pajak||'', aktif:Number(p.aktif)===1, keterangan:p.keterangan||''
         }));
+        // Kompatibilitas data lama: jika tabel benar-benar kosong, gunakan JSON lama.
         if (masterPajak.length === 0) {
             masterPajak = safeJSON(settings[0]?.master_pajak, []);
             if (!Array.isArray(masterPajak)) masterPajak = [];
         }
 
-        let users = settings[0]?.users || [];
+        let users =
+            settings[0]?.users || [];
+
         if (typeof users === 'string') {
-            try { users = JSON.parse(users); } catch (e) { users = []; }
+
+            try {
+                users =
+                    JSON.parse(users);
+            } catch (e) {
+                users = [];
+            }
         }
 
-        const masterBank = masterBankRows.map(b => ({
+        let masterBank = masterBankRows.map(b => ({
             id: b.id,
             nama: b.nama,
             rekening: b.rekening || '',
@@ -841,20 +925,19 @@ app.get('/api/data', async (req, res) => {
             keterangan: b.keterangan || ''
         }));
 
+        // Tabel master_bank adalah sumber utama. JSON lama tidak lagi dipakai saat runtime.
         if (userRows.length > 0) {
             users = userRows.map(u => {
                 const extra = safeJSON(u.data, {});
-                return { ...extra, id:u.username, username:u.username, password:u.password,
-                    role:u.role, name:u.name, shift:u.shift||'',
-                    status:u.status||(Number(u.aktif)===1?'Aktif':'Nonaktif'), aktif:Number(u.aktif) === 1 };
+                return { ...extra, id:u.username, username:u.username, password:u.password, role:u.role, name:u.name, shift:u.shift||'', status:u.status||(Number(u.aktif)===1?'Aktif':'Nonaktif'), aktif:Number(u.aktif) === 1 };
             });
         }
 
-        let shiftSessions = shiftRows.map(r => {
-            const extra = safeJSON(r.data, {});
-            return { ...extra, id:r.id, username:r.username, name:r.name, shift:r.shift,
-                start_time:r.start_time, end_time:r.end_time, status:r.status };
-        });
+        let shiftSessions =
+            shiftRows.map(r => {
+                const extra = safeJSON(r.data, {});
+                return { ...extra, id:r.id, username:r.username, name:r.name, shift:r.shift, start_time:r.start_time, end_time:r.end_time, status:r.status };
+            });
         if (shiftSessions.length === 0) {
             shiftSessions = safeJSON(settings[0]?.shift_sessions, []);
             if (!Array.isArray(shiftSessions)) shiftSessions = [];
@@ -862,47 +945,92 @@ app.get('/api/data', async (req, res) => {
 
         let auditTrail = auditRows.map(r => {
             const extra = safeJSON(r.data, {});
-            return { ...extra, id:r.id, timestamp:Number(r.timestamp)||0, username:r.username,
-                name:r.name, action:r.action, details:r.details };
+            return { ...extra, id:r.id, timestamp:Number(r.timestamp)||0, username:r.username, name:r.name, action:r.action, details:r.details };
         });
         if (auditTrail.length === 0) {
             auditTrail = safeJSON(settings[0]?.audit_trail, []);
             if (!Array.isArray(auditTrail)) auditTrail = [];
         }
+
         if (typeof shiftSessions === 'string') {
-            try { shiftSessions = JSON.parse(shiftSessions); } catch (e) { shiftSessions = []; }
+            try {
+                shiftSessions = JSON.parse(shiftSessions);
+            } catch (e) {
+                shiftSessions = [];
+            }
         }
-        if (!Array.isArray(shiftSessions)) shiftSessions = [];
+
+        if (!Array.isArray(shiftSessions)) {
+            shiftSessions = [];
+        }
 
         const result = {
+
             spareparts,
+
             transactions,
+
             partners,
+
             cashExpenses,
+
             cashInflows,
+
             taxRecords,
+
             returRecords,
-            kasAwal: settings[0]?.kas_awal || 0,
-            activeShiftStart: settings[0]?.active_shift_start || Date.now(),
+
+            kasAwal:
+                settings[0]?.kas_awal || 0,
+
+            activeShiftStart:
+                settings[0]?.active_shift_start ||
+                Date.now(),
+
             masterPajak,
+
             masterBank,
+
             users,
+
             shiftSessions,
+
             auditTrail
         };
 
         dataCache = result;
         dataCacheTime = Date.now();
-        res.set('Cache-Control', 'private, max-age=15');
-        return res.json(result);
+
+        res.json(result);
 
     } catch (error) {
-        console.error('Error GET DATA:', error);
+
+        console.error(
+            'Error GET DATA:',
+            error
+        );
+
+        // Jangan mengembalikan cache lama
+        // jika database benar-benar gagal.
         if (dataCache) {
-            console.log('Mengembalikan data cache karena error database');
+
+            console.log(
+                'Mengembalikan data cache karena error database'
+            );
+
             return res.json(dataCache);
         }
-        return res.status(500).json({ success:false, error:error.message });
+
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+
+    } finally {
+
+        if (connection) {
+            connection.release();
+        }
     }
 });
 
