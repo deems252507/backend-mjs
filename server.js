@@ -29,7 +29,7 @@ const pool = mysql.createPool({
     password: process.env.MYSQL_ADDON_PASSWORD || process.env.DB_PASSWORD || 'fWwkTbshbBANrTGMj8Aq',
     database: process.env.MYSQL_ADDON_DB || process.env.DB_NAME || 'b7fgoctdsrijlfhczppz',
     waitForConnections: true,
-    connectionLimit: 1,
+    connectionLimit: 5,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0,
     connectTimeout: 10000,
@@ -454,6 +454,7 @@ app.post('/api/migrate', async (req, res) => {
                     safeString(t.nama),
                     safeString(t.kategori),
                     safeString(t.merek),
+                    safeString(t.kode_pajak),
                     safeString(t.status_bayar),
                     safeString(t.pelanggan),
                     safeNumber(t.jumlah),
@@ -477,6 +478,7 @@ app.post('/api/migrate', async (req, res) => {
                         nama,
                         kategori,
                         merek,
+                        kode_pajak,
                         status_bayar,
                         pelanggan,
                         jumlah,
@@ -541,6 +543,7 @@ app.post('/api/migrate', async (req, res) => {
 // ============================================================
 
 let databaseReady = false;
+let databaseInitPromise = null;
 app.get('/api/ready', async (req,res)=>{
     if(databaseReady) return res.json({success:true,ready:true});
     res.status(503).json({success:false,ready:false,error:'Database masih disiapkan.'});
@@ -548,6 +551,12 @@ app.get('/api/ready', async (req,res)=>{
 
 app.get('/api/login-bootstrap', async (req,res)=>{
     try {
+        // Jangan membaca akun saat database masih dalam proses inisialisasi.
+        if (!databaseReady && databaseInitPromise) {
+            const ready = await databaseInitPromise;
+            if (!ready) throw new Error('Database belum siap. Silakan coba lagi.');
+        }
+
         // Pastikan struktur minimum tersedia sebelum login.
         // Tidak menghapus atau menimpa data lama.
         await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
@@ -1367,6 +1376,7 @@ app.post('/api/transactions', async (req, res) => {
                     safeString(t.kategori),
 
                     safeString(t.merek),
+                    safeString(t.kode_pajak),
 
                     safeString(t.status_bayar),
 
@@ -1398,6 +1408,7 @@ app.post('/api/transactions', async (req, res) => {
                         nama,
                         kategori,
                         merek,
+                        kode_pajak,
                         status_bayar,
                         pelanggan,
                         jumlah,
@@ -1760,6 +1771,7 @@ app.post('/api/transaction/retur', async (req, res) => {
                     t.kategori || '',
 
                     t.merek || '',
+                    t.kode_pajak || '',
 
                     t.status_bayar ||
                     t.statusBayar ||
@@ -1805,6 +1817,7 @@ app.post('/api/transaction/retur', async (req, res) => {
                         nama,
                         kategori,
                         merek,
+                        kode_pajak,
                         status_bayar,
                         pelanggan,
                         jumlah,
@@ -3419,6 +3432,7 @@ app.post('/api/restore', async (req, res) => {
                         nama,
                         kategori,
                         merek,
+                        kode_pajak,
                         status_bayar,
                         pelanggan,
                         jumlah,
@@ -3678,19 +3692,28 @@ async function startServer() {
     app.listen(PORT, () => {
         console.log(`Server berjalan di port ${PORT}`);
     });
-    for(let attempt=1; attempt<=12; attempt++){
-        try {
-            await initializeDatabase();
-            databaseReady=true;
-            console.log('Database initialization selesai.');
-            return;
-        } catch(error) {
-            databaseReady=false;
-            console.error(`Database initialization gagal (percobaan ${attempt}/12):`, error.message);
-            if(attempt<12) await new Promise(r=>setTimeout(r, Math.min(5000, 1000*attempt)));
+
+    databaseInitPromise = (async () => {
+        for (let attempt = 1; attempt <= 12; attempt++) {
+            try {
+                await initializeDatabase();
+                databaseReady = true;
+                console.log('Database initialization selesai.');
+                return true;
+            } catch (error) {
+                databaseReady = false;
+                console.error(`Database initialization gagal (percobaan ${attempt}/12):`, error.message);
+                if (attempt < 12) {
+                    await new Promise(r => setTimeout(r, Math.min(5000, 1000 * attempt)));
+                }
+            }
         }
-    }
-    console.error('Database belum siap setelah retry. Server tetap hidup; endpoint login akan menunggu koneksi.');
+
+        console.error('Database belum siap setelah retry. Server tetap hidup; endpoint login akan menunggu koneksi.');
+        return false;
+    })();
+
+    await databaseInitPromise;
 }
 
 startServer();
