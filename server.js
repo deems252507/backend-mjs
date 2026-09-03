@@ -29,7 +29,7 @@ const pool = mysql.createPool({
     password: 'fWwkTbshbBANrTGMj8Aq',
     database: 'b7fgoctdsrijlfhczppz',
     waitForConnections: true,
-    connectionLimit: 4,
+    connectionLimit: 1,
     queueLimit: 0
 });
 
@@ -854,6 +854,8 @@ app.post('/api/migrate', async (req, res) => {
 
 app.get('/api/login-bootstrap', async (req, res) => {
     try {
+        // Login harus ringan. DB Clever Cloud akun ini hanya menyediakan
+        // sedikit koneksi, jadi bootstrap tidak boleh membuka banyak koneksi.
         const [settings] = await pool.query(
             'SELECT users FROM app_settings WHERE id = 1 LIMIT 1'
         );
@@ -861,48 +863,28 @@ app.get('/api/login-bootstrap', async (req, res) => {
         let users = safeJSON(settings[0]?.users, []);
         if (!Array.isArray(users)) users = [];
 
-        // Database lama kadang memiliki app_settings, tetapi kolom users
-        // kosong/NULL. Jangan membuat login gagal hanya karena kondisi ini.
-        // Jika users memang kosong, pulihkan akun awal ke database.
+        // Jika data user kosong, gunakan akun awal untuk proses login.
+        // Tidak melakukan UPDATE di sini agar login tidak menambah beban DB.
         if (users.length === 0) {
             users = [
-                {
-                    username: 'owner',
-                    password: 'owner123',
-                    role: 'Owner',
-                    name: 'Pemilik'
-                },
-                {
-                    username: 'admin',
-                    password: 'admin123',
-                    role: 'Admin',
-                    name: 'Administrator'
-                },
-                {
-                    username: 'pagi',
-                    password: 'pagi123',
-                    role: 'Kasir',
-                    name: 'Kasir Pagi',
-                    shift: 'Kasir Pagi'
-                },
-                {
-                    username: 'siang',
-                    password: 'siang123',
-                    role: 'Kasir',
-                    name: 'Kasir Siang',
-                    shift: 'Kasir Siang'
-                }
+                { username: 'owner', password: 'owner123', role: 'Owner', name: 'Pemilik' },
+                { username: 'admin', password: 'admin123', role: 'Admin', name: 'Administrator' },
+                { username: 'pagi', password: 'pagi123', role: 'Kasir', name: 'Kasir Pagi', shift: 'Kasir Pagi' },
+                { username: 'siang', password: 'siang123', role: 'Kasir', name: 'Kasir Siang', shift: 'Kasir Siang' }
             ];
-
-            await pool.query(
-                'UPDATE app_settings SET users = ? WHERE id = 1',
-                [JSON.stringify(users)]
-            );
         }
 
-        const [shiftSessions] = await pool.query(
-            'SELECT * FROM shift_sessions ORDER BY start DESC'
-        );
+        // Shift adalah data pendukung. Jika tabel sedang belum tersedia,
+        // login tetap dapat berlangsung dan shift akan dimuat saat tersedia.
+        let shiftSessions = [];
+        try {
+            const [rows] = await pool.query(
+                'SELECT * FROM shift_sessions ORDER BY start DESC'
+            );
+            shiftSessions = Array.isArray(rows) ? rows : [];
+        } catch (shiftError) {
+            console.warn('LOGIN BOOTSTRAP: shift_sessions belum siap:', shiftError.message);
+        }
 
         res.json({
             success: true,
@@ -913,7 +895,7 @@ app.get('/api/login-bootstrap', async (req, res) => {
         console.error('LOGIN BOOTSTRAP ERROR:', error);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message || 'Database login tidak dapat diakses.'
         });
     }
 });
