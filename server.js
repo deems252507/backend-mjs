@@ -454,7 +454,6 @@ app.post('/api/migrate', async (req, res) => {
                     safeString(t.nama),
                     safeString(t.kategori),
                     safeString(t.merek),
-                    safeString(t.kode_pajak),
                     safeString(t.status_bayar),
                     safeString(t.pelanggan),
                     safeNumber(t.jumlah),
@@ -478,7 +477,6 @@ app.post('/api/migrate', async (req, res) => {
                         nama,
                         kategori,
                         merek,
-                        kode_pajak,
                         status_bayar,
                         pelanggan,
                         jumlah,
@@ -1245,7 +1243,11 @@ app.post('/api/transactions', async (req, res) => {
         taxRecords
     } = req.body || {};
 
+    let conn = null;
+
     try {
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
 
         // ----------------------------------------------------
         // TRANSACTIONS
@@ -1309,7 +1311,7 @@ app.post('/api/transactions', async (req, res) => {
 
             if (values.length > 0) {
 
-                await pool.query(`
+                await conn.query(`
                     INSERT IGNORE INTO transactions
                     (
                         id,
@@ -1369,7 +1371,6 @@ app.post('/api/transactions', async (req, res) => {
                     safeString(t.kategori),
 
                     safeString(t.merek),
-                    safeString(t.kode_pajak),
 
                     safeString(t.status_bayar),
 
@@ -1390,7 +1391,7 @@ app.post('/api/transactions', async (req, res) => {
 
             if (values.length > 0) {
 
-                await pool.query(`
+                await conn.query(`
                     INSERT IGNORE INTO tax_records
                     (
                         tax_id,
@@ -1401,7 +1402,6 @@ app.post('/api/transactions', async (req, res) => {
                         nama,
                         kategori,
                         merek,
-                        kode_pajak,
                         status_bayar,
                         pelanggan,
                         jumlah,
@@ -1416,6 +1416,7 @@ app.post('/api/transactions', async (req, res) => {
             }
         }
 
+        await conn.commit();
         invalidateDataCache();
 
         res.json({
@@ -1424,6 +1425,10 @@ app.post('/api/transactions', async (req, res) => {
         });
 
     } catch (error) {
+
+        if (conn) {
+            try { await conn.rollback(); } catch (_) {}
+        }
 
         console.error(
             'Error transaksi:',
@@ -1434,6 +1439,8 @@ app.post('/api/transactions', async (req, res) => {
             success: false,
             error: error.message
         });
+    } finally {
+        if (conn) conn.release();
     }
 });
 
@@ -1764,7 +1771,6 @@ app.post('/api/transaction/retur', async (req, res) => {
                     t.kategori || '',
 
                     t.merek || '',
-                    t.kode_pajak || '',
 
                     t.status_bayar ||
                     t.statusBayar ||
@@ -1810,7 +1816,6 @@ app.post('/api/transaction/retur', async (req, res) => {
                         nama,
                         kategori,
                         merek,
-                        kode_pajak,
                         status_bayar,
                         pelanggan,
                         jumlah,
@@ -3425,7 +3430,6 @@ app.post('/api/restore', async (req, res) => {
                         nama,
                         kategori,
                         merek,
-                        kode_pajak,
                         status_bayar,
                         pelanggan,
                         jumlah,
@@ -3697,7 +3701,7 @@ async function startServer() {
             if(attempt<12) await new Promise(r=>setTimeout(r, Math.min(5000, 1000*attempt)));
         }
     }
-    console.error('Database belum siap setelah retry. Server tetap hidup; endpoint login tidak diblokir oleh proses inisialisasi.');
+    console.error('Database belum siap setelah retry. Server tetap hidup; endpoint login akan menunggu koneksi.');
 }
 
 startServer();
@@ -3742,8 +3746,9 @@ async function initializeDatabase() {
         tax_id VARCHAR(100) PRIMARY KEY, trx_id BIGINT, tanggal DATETIME, nomor_transaksi VARCHAR(50),
         part_number VARCHAR(255), nama VARCHAR(500), kategori VARCHAR(100), merek VARCHAR(100),
         status_bayar VARCHAR(20), pelanggan VARCHAR(255), jumlah INT, satuan VARCHAR(50),
-        harga_satuan BIGINT, subtotal BIGINT, persentase_pajak DECIMAL(5,2), nilai_pajak BIGINT
+        harga_satuan BIGINT, subtotal BIGINT, persentase_pajak DECIMAL(5,2), nilai_pajak BIGINT, kode_pajak VARCHAR(50) DEFAULT ''
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    try { await pool.query(`ALTER TABLE tax_records ADD COLUMN kode_pajak VARCHAR(50) DEFAULT '' AFTER merek`); } catch(e) {}
 
     await pool.query(`CREATE TABLE IF NOT EXISTS retur_records (
         id VARCHAR(50) PRIMARY KEY, parent_invoice VARCHAR(50), tanggal DATETIME, kasir VARCHAR(100),
@@ -3894,7 +3899,7 @@ async function initializeDatabase() {
         trx_id: "BIGINT DEFAULT 0", tanggal: "DATETIME NULL",
         nomor_transaksi: "VARCHAR(50) NULL", part_number: "VARCHAR(255) NULL",
         nama: "VARCHAR(500) NULL", kategori: "VARCHAR(100) NULL",
-        merek: "VARCHAR(100) NULL", kode_pajak: "VARCHAR(50) DEFAULT ''", status_bayar: "VARCHAR(20) NULL",
+        merek: "VARCHAR(100) NULL", status_bayar: "VARCHAR(20) NULL",
         pelanggan: "VARCHAR(255) NULL", jumlah: "INT DEFAULT 0",
         satuan: "VARCHAR(50) NULL", harga_satuan: "BIGINT DEFAULT 0",
         subtotal: "BIGINT DEFAULT 0", persentase_pajak: "DECIMAL(5,2) DEFAULT 0",
