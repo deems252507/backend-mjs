@@ -1619,16 +1619,36 @@ app.post('/api/transaction/retur', async (req, res) => {
                 kasir,
                 pelanggan,
                 items,
-                exchange_items
+                exchange_items,
+                shift_id,
+                metode_bayar,
+                bank_transfer,
+                retur_value,
+                exchange_value,
+                net_amount,
+                payment_direction,
+                payment_method,
+                cash_amount,
+                transfer_amount
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 parent_invoice = VALUES(parent_invoice),
                 tanggal = VALUES(tanggal),
                 kasir = VALUES(kasir),
                 pelanggan = VALUES(pelanggan),
                 items = VALUES(items),
-                exchange_items = VALUES(exchange_items)
+                exchange_items = VALUES(exchange_items),
+                shift_id = VALUES(shift_id),
+                metode_bayar = VALUES(metode_bayar),
+                bank_transfer = VALUES(bank_transfer),
+                retur_value = VALUES(retur_value),
+                exchange_value = VALUES(exchange_value),
+                net_amount = VALUES(net_amount),
+                payment_direction = VALUES(payment_direction),
+                payment_method = VALUES(payment_method),
+                cash_amount = VALUES(cash_amount),
+                transfer_amount = VALUES(transfer_amount)
             `,
             [
                 String(returId),
@@ -1637,7 +1657,17 @@ app.post('/api/transaction/retur', async (req, res) => {
                 String(kasir),
                 String(pelanggan),
                 JSON.stringify(normalizedItems),
-                JSON.stringify(normalizedExchangeItems)
+                JSON.stringify(normalizedExchangeItems),
+                safeString(returRecord.shift_id || returRecord.shiftId || ''),
+                safeString(returRecord.metode_bayar || returRecord.metodeBayar || returRecord.payment_method || ''),
+                safeString(returRecord.bank_transfer || returRecord.bankTransfer || ''),
+                safeNumber(returRecord.retur_value),
+                safeNumber(returRecord.exchange_value),
+                safeNumber(returRecord.net_amount),
+                safeString(returRecord.payment_direction || returRecord.paymentDirection || ''),
+                safeString(returRecord.payment_method || returRecord.paymentMethod || ''),
+                safeNumber(returRecord.cash_amount),
+                safeNumber(returRecord.transfer_amount)
             ]
         );
 
@@ -2438,13 +2468,22 @@ app.put('/api/transactions/payoff', async (req, res) => {
 
         await conn.query(`
             INSERT INTO cash_inflows
-            (id, tanggal, jumlah, keterangan, kasir, shift_id, jenis_mutasi, sumber_dana, username)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (
+                id,
+                tanggal,
+                jumlah,
+                keterangan,
+                kasir
+            )
+            VALUES (?, ?, ?, ?, ?)
         `, [
-            Date.now(), new Date(), total,
-            'Pelunasan Bon: ' + String(trxId),
-            trxRows[0].kasir || 'Admin',
-            safeString(trxRows[0].shift_id), 'PELUNASAN_BON', 'LACI', trxRows[0].kasir || 'Admin'
+            Date.now(),
+            new Date(),
+            total,
+            'Pelunasan Bon: ' +
+                String(trxId),
+            trxRows[0].kasir ||
+                'Admin'
         ]);
 
         await conn.commit();
@@ -2580,22 +2619,24 @@ app.put('/api/transaction/:id', async (req, res) => {
 // KAS MASUK / KAS KELUAR
 // ============================================================
 app.post('/api/cash-inflow', async (req,res)=>{
-    const x=req.body||{}, id=safeInteger(x.id), jumlah=safeNumber(x.jumlah);
+    const x=req.body||{}, id=safeInteger(x.id);
     if(id===null) return res.status(400).json({success:false,error:'ID kas masuk tidak valid'});
+    const jumlah=safeNumber(x.jumlah);
     if(jumlah<=0) return res.status(400).json({success:false,error:'Jumlah kas masuk harus lebih dari 0'});
     try {
-        await pool.query(`INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,sumber_dana,nomor_bukti,bukti,username) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),sumber_dana=VALUES(sumber_dana),nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),username=VALUES(username)`,[id,safeDate(x.tanggal),jumlah,safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id),safeString(x.jenis_mutasi,'MODAL'),safeString(x.sumber_dana,'LACI'),safeString(x.nomor_bukti),safeString(x.bukti),safeString(x.username)]);
-        invalidateDataCache(); res.json({success:true,id,message:'Kas masuk berhasil disimpan'});
-    } catch(error){ console.error('[CASH INFLOW ERROR]',error); res.status(500).json({success:false,error:error.message});}
+        const [result]=await pool.query(`INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,sumber_dana,nomor_bukti,bukti,username) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),sumber_dana=VALUES(sumber_dana),nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),username=VALUES(username)`,[id,safeDate(x.tanggal),jumlah,safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id),safeString(x.jenis_mutasi,'MODAL'),safeString(x.sumber_dana),safeString(x.nomor_bukti),safeString(x.bukti),safeString(x.username||x.userName)]);
+        invalidateDataCache(); res.json({success:true,id,affectedRows:result.affectedRows});
+    } catch(error){console.error('[CASH-IN ERROR]',error);res.status(500).json({success:false,error:error.message});}
 });
 app.post('/api/cash-expense', async (req,res)=>{
-    const x=req.body||{}, id=safeInteger(x.id), jumlah=safeNumber(x.jumlah);
+    const x=req.body||{}, id=safeInteger(x.id);
     if(id===null) return res.status(400).json({success:false,error:'ID kas keluar tidak valid'});
+    const jumlah=safeNumber(x.jumlah);
     if(jumlah<=0) return res.status(400).json({success:false,error:'Jumlah kas keluar harus lebih dari 0'});
     try {
-        await pool.query(`INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,nomor_bukti,bukti,tujuan,username) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),tujuan=VALUES(tujuan),username=VALUES(username)`,[id,safeDate(x.tanggal),jumlah,safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id),safeString(x.jenis_mutasi,'TARIK_KAS'),safeString(x.nomor_bukti),safeString(x.bukti),safeString(x.tujuan),safeString(x.username)]);
-        invalidateDataCache(); res.json({success:true,id,message:'Kas keluar berhasil disimpan'});
-    } catch(error){ console.error('[CASH EXPENSE ERROR]',error); res.status(500).json({success:false,error:error.message});}
+        const [result]=await pool.query(`INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,nomor_bukti,bukti,tujuan,username) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),tujuan=VALUES(tujuan),username=VALUES(username)`,[id,safeDate(x.tanggal),jumlah,safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id),safeString(x.jenis_mutasi,'TARIK_KAS'),safeString(x.nomor_bukti),safeString(x.bukti),safeString(x.tujuan),safeString(x.username||x.userName)]);
+        invalidateDataCache(); res.json({success:true,id,affectedRows:result.affectedRows});
+    } catch(error){console.error('[CASH-EXPENSE ERROR]',error);res.status(500).json({success:false,error:error.message});}
 });
 
 // ============================================================
@@ -2851,10 +2892,12 @@ app.put('/api/settings', async (req, res) => {
         }
         for (const r of (Array.isArray(data.returRecords) ? data.returRecords : [])) {
             if (!r || !String(r.id || '').trim()) continue;
-            await conn.query(`INSERT INTO retur_records (id,parent_invoice,tanggal,kasir,pelanggan,items,exchange_items)
-                VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE parent_invoice=VALUES(parent_invoice),tanggal=VALUES(tanggal),kasir=VALUES(kasir),pelanggan=VALUES(pelanggan),items=VALUES(items),exchange_items=VALUES(exchange_items)`, [
+            await conn.query(`INSERT INTO retur_records (id,parent_invoice,tanggal,kasir,pelanggan,items,exchange_items,shift_id,metode_bayar,bank_transfer,retur_value,exchange_value,net_amount,payment_direction,payment_method,cash_amount,transfer_amount)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE parent_invoice=VALUES(parent_invoice),tanggal=VALUES(tanggal),kasir=VALUES(kasir),pelanggan=VALUES(pelanggan),items=VALUES(items),exchange_items=VALUES(exchange_items),shift_id=VALUES(shift_id),metode_bayar=VALUES(metode_bayar),bank_transfer=VALUES(bank_transfer),retur_value=VALUES(retur_value),exchange_value=VALUES(exchange_value),net_amount=VALUES(net_amount),payment_direction=VALUES(payment_direction),payment_method=VALUES(payment_method),cash_amount=VALUES(cash_amount),transfer_amount=VALUES(transfer_amount)`, [
                 safeString(r.id),safeString(r.parent_invoice),safeDate(r.tanggal),safeString(r.kasir),safeString(r.pelanggan),
-                JSON.stringify(Array.isArray(r.items)?r.items:[]),JSON.stringify(Array.isArray(r.exchange_items)?r.exchange_items:[])
+                JSON.stringify(Array.isArray(r.items)?r.items:[]),JSON.stringify(Array.isArray(r.exchange_items)?r.exchange_items:[]),
+                safeString(r.shift_id || r.shiftId || ''),safeString(r.metode_bayar || r.metodeBayar || r.payment_method || ''),safeString(r.bank_transfer || r.bankTransfer || ''),
+                safeNumber(r.retur_value),safeNumber(r.exchange_value),safeNumber(r.net_amount),safeString(r.payment_direction || r.paymentDirection || ''),safeString(r.payment_method || r.paymentMethod || ''),safeNumber(r.cash_amount),safeNumber(r.transfer_amount)
             ]);
         }
         await conn.commit();
@@ -3487,7 +3530,18 @@ app.post('/api/restore', async (req, res) => {
                             )
                                 ? r.exchange_items
                                 : []
-                        )
+                        ),
+
+                        safeString(r.shift_id || r.shiftId || ''),
+                        safeString(r.metode_bayar || r.metodeBayar || r.payment_method || ''),
+                        safeString(r.bank_transfer || r.bankTransfer || ''),
+                        safeNumber(r.retur_value),
+                        safeNumber(r.exchange_value),
+                        safeNumber(r.net_amount),
+                        safeString(r.payment_direction || r.paymentDirection || ''),
+                        safeString(r.payment_method || r.paymentMethod || ''),
+                        safeNumber(r.cash_amount),
+                        safeNumber(r.transfer_amount)
                     ]);
 
             if (values.length > 0) {
@@ -3501,7 +3555,17 @@ app.post('/api/restore', async (req, res) => {
                         kasir,
                         pelanggan,
                         items,
-                        exchange_items
+                        exchange_items,
+                        shift_id,
+                        metode_bayar,
+                        bank_transfer,
+                        retur_value,
+                        exchange_value,
+                        net_amount,
+                        payment_direction,
+                        payment_method,
+                        cash_amount,
+                        transfer_amount
                     )
                     VALUES ?
                 `, [values]);
