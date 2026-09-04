@@ -26,7 +26,7 @@ app.get('/api/test', (req, res) => {
 const pool = mysql.createPool({
     host: process.env.MYSQL_ADDON_HOST || process.env.DB_HOST || 'b7fgoctdsrijlfhczppz-mysql.services.clever-cloud.com',
     user: process.env.MYSQL_ADDON_USER || process.env.DB_USER || 'uks2krvuygsynrco',
-    password: process.env.MYSQL_ADDON_PASSWORD || process.env.DB_PASSWORD || 'fWwkTbshbBANrTGMj8Aq',
+    password: process.env.MYSQL_ADDON_PASSWORD || process.env.DB_PASSWORD || '',
     database: process.env.MYSQL_ADDON_DB || process.env.DB_NAME || 'b7fgoctdsrijlfhczppz',
     waitForConnections: true,
     connectionLimit: 5,
@@ -2438,22 +2438,13 @@ app.put('/api/transactions/payoff', async (req, res) => {
 
         await conn.query(`
             INSERT INTO cash_inflows
-            (
-                id,
-                tanggal,
-                jumlah,
-                keterangan,
-                kasir
-            )
-            VALUES (?, ?, ?, ?, ?)
+            (id, tanggal, jumlah, keterangan, kasir, shift_id, jenis_mutasi, sumber_dana, username)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-            Date.now(),
-            new Date(),
-            total,
-            'Pelunasan Bon: ' +
-                String(trxId),
-            trxRows[0].kasir ||
-                'Admin'
+            Date.now(), new Date(), total,
+            'Pelunasan Bon: ' + String(trxId),
+            trxRows[0].kasir || 'Admin',
+            safeString(trxRows[0].shift_id), 'PELUNASAN_BON', 'LACI', trxRows[0].kasir || 'Admin'
         ]);
 
         await conn.commit();
@@ -2589,20 +2580,22 @@ app.put('/api/transaction/:id', async (req, res) => {
 // KAS MASUK / KAS KELUAR
 // ============================================================
 app.post('/api/cash-inflow', async (req,res)=>{
-    const x=req.body||{}, id=safeInteger(x.id);
+    const x=req.body||{}, id=safeInteger(x.id), jumlah=safeNumber(x.jumlah);
     if(id===null) return res.status(400).json({success:false,error:'ID kas masuk tidak valid'});
+    if(jumlah<=0) return res.status(400).json({success:false,error:'Jumlah kas masuk harus lebih dari 0'});
     try {
-        await pool.query(`INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,sumber_dana,nomor_bukti,bukti,username,userName) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),sumber_dana=VALUES(sumber_dana),nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),username=VALUES(username),userName=VALUES(userName)`,[id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id),safeString(x.jenis_mutasi,'MODAL'),safeString(x.sumber_dana),safeString(x.nomor_bukti),safeString(x.bukti),safeString(x.username),safeString(x.userName)]);
-        invalidateDataCache(); res.json({success:true,id});
-    } catch(error){res.status(500).json({success:false,error:error.message});}
+        await pool.query(`INSERT INTO cash_inflows (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,sumber_dana,nomor_bukti,bukti,username) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),sumber_dana=VALUES(sumber_dana),nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),username=VALUES(username)`,[id,safeDate(x.tanggal),jumlah,safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id),safeString(x.jenis_mutasi,'MODAL'),safeString(x.sumber_dana,'LACI'),safeString(x.nomor_bukti),safeString(x.bukti),safeString(x.username)]);
+        invalidateDataCache(); res.json({success:true,id,message:'Kas masuk berhasil disimpan'});
+    } catch(error){ console.error('[CASH INFLOW ERROR]',error); res.status(500).json({success:false,error:error.message});}
 });
 app.post('/api/cash-expense', async (req,res)=>{
-    const x=req.body||{}, id=safeInteger(x.id);
+    const x=req.body||{}, id=safeInteger(x.id), jumlah=safeNumber(x.jumlah);
     if(id===null) return res.status(400).json({success:false,error:'ID kas keluar tidak valid'});
+    if(jumlah<=0) return res.status(400).json({success:false,error:'Jumlah kas keluar harus lebih dari 0'});
     try {
-        await pool.query(`INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,nomor_bukti,bukti,tujuan,username,userName) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),tujuan=VALUES(tujuan),username=VALUES(username),userName=VALUES(userName)`,[id,safeDate(x.tanggal),safeNumber(x.jumlah),safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id),safeString(x.jenis_mutasi,'TARIK_KAS'),safeString(x.nomor_bukti),safeString(x.bukti),safeString(x.tujuan),safeString(x.username),safeString(x.userName)]);
-        invalidateDataCache(); res.json({success:true,id});
-    } catch(error){res.status(500).json({success:false,error:error.message});}
+        await pool.query(`INSERT INTO cash_expenses (id,tanggal,jumlah,keterangan,kasir,shift_id,jenis_mutasi,nomor_bukti,bukti,tujuan,username) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE tanggal=VALUES(tanggal),jumlah=VALUES(jumlah),keterangan=VALUES(keterangan),kasir=VALUES(kasir),shift_id=VALUES(shift_id),jenis_mutasi=VALUES(jenis_mutasi),nomor_bukti=VALUES(nomor_bukti),bukti=VALUES(bukti),tujuan=VALUES(tujuan),username=VALUES(username)`,[id,safeDate(x.tanggal),jumlah,safeString(x.keterangan),safeString(x.kasir),safeString(x.shift_id),safeString(x.jenis_mutasi,'TARIK_KAS'),safeString(x.nomor_bukti),safeString(x.bukti),safeString(x.tujuan),safeString(x.username)]);
+        invalidateDataCache(); res.json({success:true,id,message:'Kas keluar berhasil disimpan'});
+    } catch(error){ console.error('[CASH EXPENSE ERROR]',error); res.status(500).json({success:false,error:error.message});}
 });
 
 // ============================================================
@@ -3892,7 +3885,7 @@ async function initializeDatabase() {
     const cashColumns = {
         tanggal: "DATETIME NULL", jumlah: "BIGINT DEFAULT 0",
         keterangan: "TEXT NULL", kasir: "VARCHAR(100) NULL", shift_id: "VARCHAR(100) NULL",
-        jenis_mutasi: "VARCHAR(50) NULL", sumber_dana: "VARCHAR(100) NULL", nomor_bukti: "VARCHAR(100) NULL", bukti: "TEXT NULL", tujuan: "VARCHAR(255) NULL", username: "VARCHAR(100) NULL", userName: "VARCHAR(255) NULL"
+        jenis_mutasi: "VARCHAR(50) NULL", sumber_dana: "VARCHAR(100) NULL", nomor_bukti: "VARCHAR(100) NULL", bukti: "TEXT NULL", tujuan: "VARCHAR(255) NULL", username: "VARCHAR(100) NULL"
     };
 
     const taxColumns = {
